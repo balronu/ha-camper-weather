@@ -35,4 +35,4 @@ MET_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 DWD_URL = "https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json"
 RAINVIEWER_URL = "https://api.rainviewer.com/public/weather-maps.json"
 
-ACTIVITIES = tuple(("walking", "Spazieren"), ("hiking", "Wandern"), ("cycling", "Fahrrad"), ("ebike", "E-Bike"), ("jogging", "Joggen"), ("skiing", "Skifahren"), ("swimming", "Schwimmen"), ("barbecue", "Grillen"), ("fishing", "Angeln"))
+ACTIVITIES = (("walking", "Spazieren"), ("hiking", "Wandern"), ("cycling", "Fahrrad"), ("ebike", "E-Bike"), ("jogging", "Joggen"), ("skiing", "Skifahren"), ("swimming", "Schwimmen"), ("barbecue", "Grillen"), ("fishing", "Angeln"))
