@@ -1,6 +1,14 @@
 from datetime import UTC, datetime
 
-from custom_components.camper_weather.core import Hour, activity_score, assess_activity_window, camping_score, normalize_open_meteo, risks_for_hour, suggest_activity_windows
+from custom_components.camper_weather.core import (
+    Hour,
+    activity_score,
+    assess_activity_window,
+    camping_score,
+    normalize_open_meteo,
+    risks_for_hour,
+    suggest_activity_windows,
+)
 
 
 def hour(**kwargs):

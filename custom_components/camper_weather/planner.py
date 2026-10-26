@@ -47,7 +47,7 @@ class ActivityStore:
 
 def assess_plan(plan: dict[str, Any], hours: list[Hour]) -> dict[str, Any]:
     try:
-        start = datetime.fromisoformat(str(plan["start_at"]).replace("Z", "+00:00"))
+        start = datetime.fromisoformat(str(plan["start_at"]))
         duration = int(plan["duration_minutes"])
     except (KeyError, TypeError, ValueError):
         return {"score": None, "risks": [{"name": "data", "severity": "unknown", "reason": "Ungültige Planungsdaten"}], "stale": True}

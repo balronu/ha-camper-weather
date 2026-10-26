@@ -104,7 +104,7 @@ def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
         raise ValueError("Startzeit fehlt")
     # Parsing also rejects malformed user input; the stored value remains ISO text.
     from datetime import datetime
-    datetime.fromisoformat(start_at.replace("Z", "+00:00"))
+    datetime.fromisoformat(start_at)
     return {"id": msg.get("id"), "activity": activity, "start_at": start_at, "duration_minutes": duration, "location_mode": msg.get("location_mode", "current"), "latitude": msg.get("latitude"), "longitude": msg.get("longitude")}
 
 
