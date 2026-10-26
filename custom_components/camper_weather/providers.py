@@ -2,13 +2,21 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import UTC, datetime
+from io import BytesIO
 from typing import Any
+from xml.etree import ElementTree
+from zipfile import BadZipFile, ZipFile
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 
-from .const import DWD_URL, DWD_WARNINGS_PREFIX, MET_URL, OPEN_METEO_URL, RAINVIEWER_URL
+from .const import DWD_CAP_INDEX_URL, DWD_URL, DWD_WARNINGS_PREFIX, MET_URL, OPEN_METEO_URL, RAINVIEWER_URL
 from .core import Hour, normalize_open_meteo
+
+# WarnWetter's structured 501000xxx namespace identifies official marine
+# areas. These records have no land polygon in the public JSON feed.
+DWD_MARINE_AREA_PREFIX = "501000"
 
 
 def _warning_identity(warning: dict[str, Any]) -> tuple[Any, ...]:
@@ -120,6 +128,10 @@ def filter_dwd_warnings(
         except (TypeError, ValueError):
             pass
         item = dict(warning)
+        if str(warning.get("region_id", "")).startswith(DWD_MARINE_AREA_PREFIX):
+            # Never score a sea-area warning as a local camping warning when
+            # the feed provides no geometry proving that the point is in it.
+            continue
         item["altitude_uncertain"] = bool((altitude_start is not None or altitude_end is not None) and elevation is None)
         polygon = warning.get("polygon")
         parsed_polygon: list[tuple[float, float]] = []
@@ -165,7 +177,59 @@ async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:
         for warning in region_warnings:
             if isinstance(warning, dict):
                 warnings.append({**warning, "region_id": str(region_id)})
+    await _enrich_dwd_cap_geometry(session, warnings)
     return warnings
+
+
+async def _enrich_dwd_cap_geometry(session: ClientSession, warnings: list[dict[str, Any]]) -> None:
+    """Attach official CAP polygons when the WarnWetter JSON omits them.
+
+    The JSON endpoint is the compact status feed; the official DWD CAP
+    district-cells product carries the corresponding geometries. Enrichment
+    is best-effort so a CAP outage never turns a valid JSON response into an
+    outage. Matching uses structured event, area name and onset fields.
+    """
+    try:
+        async with session.get(DWD_CAP_INDEX_URL, timeout=10) as response:
+            response.raise_for_status()
+            index = await response.text()
+        match = re.search(r'href="([^"]+LATEST[^"/]+_DE\.zip)"', index)
+        if not match:
+            return
+        url = DWD_CAP_INDEX_URL + match.group(1)
+        async with session.get(url, timeout=15) as response:
+            response.raise_for_status()
+            archive = await response.read()
+        polygons: dict[tuple[str, str, int | None], str] = {}
+        with ZipFile(BytesIO(archive)) as zipped:
+            for filename in zipped.namelist():
+                if not filename.endswith(".xml"):
+                    continue
+                root = ElementTree.fromstring(zipped.read(filename))
+                info = next((node for node in root.iter() if node.tag.endswith("}info")), None)
+                area = next((node for node in root.iter() if node.tag.endswith("}area")), None)
+                if info is None or area is None:
+                    continue
+                value = lambda parent, name: next((node.text for node in parent.iter() if node.tag.endswith("}" + name) and node.text), None)
+                event = value(info, "event")
+                onset = value(info, "onset")
+                area_name = value(area, "areaDesc")
+                polygon = value(area, "polygon")
+                if not event or not area_name or not polygon:
+                    continue
+                try:
+                    onset_ms = int(datetime.fromisoformat(onset).timestamp() * 1000) if onset else None
+                except (TypeError, ValueError):
+                    onset_ms = None
+                polygons[(event, area_name, onset_ms)] = polygon
+        for warning in warnings:
+            key = (str(warning.get("event") or ""), str(warning.get("regionName") or ""), warning.get("start"))
+            polygon = polygons.get(key)
+            if polygon:
+                warning["polygon"] = polygon
+                warning["geography_source"] = "dwd_cap"
+    except (ClientError, OSError, TimeoutError, ValueError, TypeError, KeyError, BadZipFile, ElementTree.ParseError):
+        return
 
 
 async def async_radar_metadata(session: ClientSession) -> dict[str, Any]:

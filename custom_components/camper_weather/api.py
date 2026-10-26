@@ -9,6 +9,7 @@ from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import ACTIVITIES, DOMAIN, GEOCODING_URL, VERSION
 from .planner import assess_plan
@@ -106,7 +107,7 @@ async def _location_get(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
         return
     store, coordinator = result
-    connection.send_result(msg["id"], {**await store.async_payload(), "active": (coordinator.data or {}).get("location")})
+    connection.send_result(msg["id"], {**await store.async_payload(), "active": (coordinator.data or {}).get("location"), "active_revision": (coordinator.data or {}).get("location_revision", 0)})
 
 
 @websocket_api.websocket_command({
@@ -126,9 +127,22 @@ async def _location_set(hass: HomeAssistant, connection: websocket_api.ActiveCon
     if current["mode"] in {"manual", "destination"} and not coordinator._valid_coordinates(current.get("latitude"), current.get("longitude")):
         connection.send_error(msg["id"], "invalid_location", "Für diesen Standortmodus sind gültige Koordinaten erforderlich")
         return
+    await store.async_load()
+    previous = dict(store.current)
     saved = await store.async_set_current(current)
-    hass.async_create_task(coordinator.async_request_refresh())
-    connection.send_result(msg["id"], saved)
+    try:
+        await coordinator.async_refresh()
+    except (ClientError, OSError, TimeoutError, ValueError, UpdateFailed) as err:
+        await store.async_set_current(previous)
+        try:
+            await coordinator.async_refresh()
+        except (ClientError, OSError, TimeoutError, ValueError, UpdateFailed):
+            connection.send_error(msg["id"], "location_refresh_failed", "Standort und vorherige Wetterdaten konnten nicht geladen werden")
+            return
+        connection.send_error(msg["id"], "location_refresh_failed", f"Standort konnte nicht geladen werden ({type(err).__name__})")
+        return
+    payload = await store.async_payload()
+    connection.send_result(msg["id"], {**saved, **payload, "active": (coordinator.data or {}).get("location"), "active_revision": (coordinator.data or {}).get("location_revision", 0)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): WS_LOCATION_GEOCODE, vol.Required("entry_id"): str, vol.Required("query"): str})

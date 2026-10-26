@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0-beta.7] – 2026-10-26
+
+### Deutsch
+
+- Standortwechsel wartet auf den tatsächlichen Wetter-Refresh, schützt schnelle GPS/Home/manuelle/Reiseziel-Wechsel vor verspäteten Antworten und stellt bei Fehlern die vorherige Auswahl wieder her.
+- Aktiver Standortmodus und aufgelöster Standort werden getrennt angezeigt; Standortänderungen aktualisieren Wetter, Warnungen, Scores und Kartenposition konsistent.
+- Offizielle DWD-Seewettergebiete aus dem strukturierten `501000…`-Gebietsnummernraum werden nicht mehr als lokale Campingwarnungen bewertet. Verfügbare CAP-Geometrien werden für Landwarnungen übernommen; unbekannte Geografie bleibt unsicher.
+- Mobile Chromium-Regression für echte Standortauswahlereignisse sowie neue DWD-Saarland-/Seewettertests ergänzt.
+
+### English
+
+- Location changes now wait for the actual weather refresh, protect rapid GPS/home/manual/destination switches from stale responses, and restore the previous selection on errors.
+- The active location mode and resolved location are displayed separately; weather, warnings, scores, and map position update consistently.
+- Official DWD marine areas in the structured `501000…` area namespace are no longer scored as local camping warnings. Available CAP geometries enrich land warnings; unknown geography remains explicitly uncertain.
+- Added mobile Chromium regression coverage for real location selection events and DWD Saarland/marine cases.
+
+**Limitations / Hinweise:** Kein produktiver Test auf VM 104 und kein echter iPhone-Abnahmetest. WebKit bleibt abhängig von den verfügbaren Systembibliotheken und wird separat berichtet.
+
 ## [0.1.0-beta.6] – 2026-10-26
 
 ### Deutsch

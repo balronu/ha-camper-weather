@@ -82,3 +82,19 @@ def test_dwd_filter_sorting_and_summary_are_stable():
     ], latitude=51.0, longitude=10.0)
     assert [item["level"] for item in result] == [3, 1]
     assert result[0]["summary"] == "Sturm"
+
+
+def test_dwd_marine_area_is_not_a_local_camping_warning_for_saarland():
+    result = filter_dwd_warnings([
+        {"region_id": "501000005", "level": 2, "event": "STARKWIND", "headline": "Amtliche Warnung des Seewetterdienstes Hamburg", "start": 0},
+        {"region_id": "100441000", "level": 2, "event": "WINDBÖEN", "regionName": "Saarland", "start": 0, "end": 4102444800000},
+    ], latitude=49.3, longitude=6.9)
+    assert len(result) == 1
+    assert result[0]["region_id"] == "100441000"
+
+
+def test_dwd_marine_area_is_not_filtered_by_headline_text():
+    result = filter_dwd_warnings([
+        {"region_id": "501000008", "level": 2, "event": "BÖEN", "headline": "BÖEN", "start": 0},
+    ], latitude=54.5, longitude=9.5)
+    assert result == []
