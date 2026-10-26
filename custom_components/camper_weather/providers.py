@@ -12,7 +12,7 @@ from .core import Hour, normalize_open_meteo
 
 async def async_open_meteo(session: ClientSession, latitude: float, longitude: float) -> tuple[Hour, ...]:
     params = {
-        "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "auto",
+        "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "UTC",
         "forecast_days": 7,
         "hourly": "temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,uv_index,snowfall,weather_code,thunderstorm_probability",
         "current": "temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code",
@@ -58,11 +58,24 @@ async def async_radar_metadata(session: ClientSession) -> dict[str, Any]:
     async with session.get(RAINVIEWER_URL, timeout=20) as response:
         response.raise_for_status()
         payload = await response.json()
+    radar = payload.get("radar", {})
+    host = payload.get("host", "https://tilecache.rainviewer.com")
+    frames = []
+    for frame in [*radar.get("past", []), *radar.get("nowcast", [])]:
+        if not isinstance(frame, dict) or not frame.get("path"):
+            continue
+        frames.append({
+            "time": frame.get("time"),
+            "path": frame["path"],
+            "tile_template": f"{host}{frame['path']}/256/{{z}}/{{x}}/{{y}}/2/1_1.png",
+        })
     return {
         "source": "RainViewer",
         "generated": payload.get("generated"),
-        "past": payload.get("radar", {}).get("past", []),
-        "nowcast": payload.get("radar", {}).get("nowcast", []),
-        "tile_template": "https://tilecache.rainviewer.com{path}/256/{z}/{x}/{y}/2/1_1.png",
+        "host": host,
+        "past": radar.get("past", []),
+        "nowcast": radar.get("nowcast", []),
+        "frames": frames,
+        "tile_template": frames[-1]["tile_template"] if frames else None,
         "retrieved_at": datetime.now(UTC).isoformat(),
     }

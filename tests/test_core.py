@@ -1,12 +1,13 @@
 from datetime import UTC, datetime
 
-from custom_components.camper_weather.core import Hour, activity_score, camping_score, normalize_open_meteo, risks_for_hour
+from custom_components.camper_weather.core import Hour, activity_score, assess_activity_window, camping_score, normalize_open_meteo, risks_for_hour, suggest_activity_windows
 
 
 def hour(**kwargs):
     values = {"temperature": 20, "wind": 10}
+    timestamp = kwargs.pop("time", datetime(2026, 10, 26, 10, tzinfo=UTC))
     values.update(kwargs)
-    return Hour(datetime(2026, 10, 26, 10, tzinfo=UTC), **values)
+    return Hour(timestamp, **values)
 
 
 def test_missing_data_is_unknown_not_good():
@@ -36,3 +37,19 @@ def test_open_meteo_normalization():
 
 def test_warning_thresholds():
     assert any(r.name == "frost" for r in risks_for_hour(hour(temperature=1)))
+
+
+def test_planner_requires_complete_window_and_scores_complete_window():
+    start = datetime(2026, 10, 26, 10, tzinfo=UTC)
+    score, risks = assess_activity_window([hour(time=start), hour(time=start.replace(hour=11))], "cycling", start, 120)
+    assert score is not None
+    assert not risks
+    score, risks = assess_activity_window([hour(time=start)], "cycling", start, 120)
+    assert score is None
+    assert risks[0].name == "data"
+
+
+def test_recommendations_exclude_critical_weather():
+    start = datetime(2026, 10, 26, 10, tzinfo=UTC)
+    hours = [hour(time=start, gusts=60), hour(time=start.replace(hour=11), gusts=60)]
+    assert suggest_activity_windows(hours, "cycling") == []

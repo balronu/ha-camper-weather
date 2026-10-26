@@ -32,7 +32,7 @@ from .const import (
     PROVIDER_MET_NORWAY,
     PROVIDER_OPEN_METEO,
 )
-from .core import Hour, activity_score, camping_score
+from .core import Hour, activity_score, camping_score, suggest_activity_windows
 from .providers import async_dwd_warnings, async_met_norway, async_open_meteo, async_radar_metadata
 
 LOGGER = logging.getLogger(__name__)
@@ -115,6 +115,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "errors": errors,
             "updated_at": datetime.now(UTC),
             "forecast": [{"time": h.time.isoformat(), "temperature": h.temperature, "wind": h.wind, "gusts": h.gusts, "precipitation": h.precipitation, "probability": h.precipitation_probability, "score": camping_score(h, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))[0]} for h in hours[:48]],
+            "recommendations": {activity: suggest_activity_windows(list(hours), activity) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")},
         }
 
     def activity(self, activity: str) -> tuple[int | None, list[Any]]:
