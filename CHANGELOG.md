@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.0-beta.3] – 2026-10-26
+
+### Deutsch
+- Planer-IDs werden unabhängig vom Frontend-Typ kanonisch als Zeichenketten gespeichert; CRUD bleibt restartfest.
+- DWD-JSONP wird korrekt verarbeitet und Statuswerte unterscheiden Warnungen, keine Warnungen und Providerfehler.
+- Empfehlungen werden an die Karte übergeben und die Standortmodi Tracker, Home-Zone, manuell und Zielort werden unterstützt.
+- OpenStreetMap-Rasterkacheln durch OpenFreeMap/MapLibre mit sichtbarer Attribution ersetzt.
+- Kompakte Temperaturgrafik, mobile Navigation, dynamische Fahrzeugauswahl und verständlichere Provider-/Zeitdarstellung.
+
+### English
+- Planner IDs are canonicalized to strings across frontend types and remain restart-safe through CRUD operations.
+- DWD JSONP is parsed correctly and status values distinguish active warnings, no warnings, and provider failures.
+- Recommendations are exposed to the card and tracker, Home Zone, manual, and destination location modes are supported.
+- OpenStreetMap raster tiles are replaced by OpenFreeMap/MapLibre with visible attribution.
+- Added compact temperature chart, mobile navigation, dynamic vehicle selection, and clearer provider/time display.
+
 ## [0.1.0-beta.2] – 2026-10-26
 
 ### Deutsch

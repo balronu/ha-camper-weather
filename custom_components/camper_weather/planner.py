@@ -23,12 +23,22 @@ class ActivityStore:
         if self._loaded:
             return
         payload = await self._store.async_load() or {}
-        self._items = {str(key): value for key, value in payload.get("items", {}).items() if isinstance(value, dict)}
+        self._items = {}
+        migrated = False
+        for key, value in payload.get("items", {}).items():
+            if not isinstance(value, dict):
+                continue
+            canonical_id = str(value.get("id", key))
+            migrated = migrated or value.get("id") != canonical_id or str(key) != canonical_id
+            self._items[canonical_id] = {**value, "id": canonical_id}
         self._loaded = True
+        if migrated:
+            await self._store.async_save({"items": self._items})
 
     async def async_save(self, item: dict[str, Any]) -> dict[str, Any]:
         await self.async_load()
-        item = {**item, "id": item.get("id") or uuid4().hex}
+        raw_id = item.get("id")
+        item = {**item, "id": str(raw_id) if raw_id else uuid4().hex}
         self._items[item["id"]] = item
         await self._store.async_save({"items": self._items})
         return item

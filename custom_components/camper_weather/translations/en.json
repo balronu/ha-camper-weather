@@ -1,1 +1,56 @@
-{"config":{"step":{"user":{"title":"Camper Weather","description":"Weather, camping and leisure assistant for one camper.","data":{"name":"Name","provider":"Primary weather provider","location_mode":"Location source","tracker":"Camper tracker","latitude":"Latitude","longitude":"Longitude","met_enabled":"Enable MET Norway fallback","dwd_enabled":"Enable DWD warnings","radar_enabled":"Enable RainViewer radar","refresh_minutes":"Refresh (minutes)","awning_wind_kmh":"Awning gust threshold (km/h)","frost_temperature_c":"Frost threshold (°C)"}}}},"options":{"step":{"init":{"title":"Camper Weather options","description":"Provider and warning thresholds.","data":{"name":"Name","provider":"Primary weather provider","location_mode":"Location source","tracker":"Camper tracker","latitude":"Latitude","longitude":"Longitude","met_enabled":"Enable MET Norway fallback","dwd_enabled":"Enable DWD warnings","radar_enabled":"Enable RainViewer radar","refresh_minutes":"Refresh (minutes)","awning_wind_kmh":"Awning gust threshold (km/h)","frost_temperature_c":"Frost threshold (°C)"}}}}}
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Camper Weather",
+        "description": "Weather, camping and leisure assistant for one camper.",
+        "data": {
+          "name": "Name",
+          "provider": "Primary weather provider",
+          "location_mode": "Location source",
+          "tracker": "Camper tracker",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "destination_name": "Destination name",
+          "met_enabled": "Enable MET Norway fallback",
+          "dwd_enabled": "Enable DWD warnings",
+          "radar_enabled": "Enable RainViewer radar",
+          "refresh_minutes": "Refresh (minutes)",
+          "awning_wind_kmh": "Awning gust threshold (km/h)",
+          "frost_temperature_c": "Frost threshold (°C)"
+        }
+      }
+    },
+    "error": {
+      "location_required": "Latitude and longitude are required for this location mode.",
+      "invalid_latitude": "Invalid latitude.",
+      "invalid_longitude": "Invalid longitude."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Camper Weather options",
+        "description": "Provider and warning thresholds.",
+        "data": {
+          "name": "Name",
+          "provider": "Primary weather provider",
+          "location_mode": "Location source",
+          "tracker": "Camper tracker",
+          "latitude": "Latitude",
+          "longitude": "Longitude",
+          "destination_name": "Destination name",
+          "met_enabled": "Enable MET Norway fallback",
+          "dwd_enabled": "Enable DWD warnings",
+          "radar_enabled": "Enable RainViewer radar",
+          "refresh_minutes": "Refresh (minutes)",
+          "awning_wind_kmh": "Awning gust threshold (km/h)",
+          "frost_temperature_c": "Frost threshold (°C)"
+        }
+      }
+    },
+    "error": {
+      "location_required": "Latitude and longitude are required for this location mode."
+    }
+  }
+}

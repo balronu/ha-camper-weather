@@ -32,6 +32,8 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    # Keep command registration valid when HA reloads an entry independently.
+    await async_setup_websocket(hass)
     coordinator = CamperWeatherCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
     planner = ActivityStore(hass)

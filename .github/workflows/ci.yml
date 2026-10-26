@@ -24,6 +24,7 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '20'}
       - run: node --check custom_components/camper_weather/www/camper-weather-card.js
+      - run: npm test --prefix frontend
       - run: npm run build --prefix frontend
       - run: test -s frontend/dist/camper-weather-card.js
   hassfest:

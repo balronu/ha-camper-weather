@@ -61,3 +61,11 @@ def test_recommendations_exclude_critical_weather():
     start = datetime(2026, 10, 26, 10, tzinfo=UTC)
     hours = [hour(time=start, gusts=60), hour(time=start.replace(hour=11), gusts=60)]
     assert suggest_activity_windows(hours, "cycling") == []
+
+
+def test_recommendations_return_reproducible_good_window():
+    start = datetime(2026, 10, 26, 10, tzinfo=UTC)
+    hours = [hour(time=start, gusts=10), hour(time=start.replace(hour=11), gusts=10)]
+    recommendations = suggest_activity_windows(hours, "cycling", duration_minutes=120)
+    assert recommendations[0]["start"] == start.isoformat()
+    assert recommendations[0]["score"] >= 0
