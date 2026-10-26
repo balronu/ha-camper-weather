@@ -56,12 +56,12 @@ async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:
         text = text[len(DWD_WARNINGS_PREFIX):].rstrip(";)").strip()
     payload = json.loads(text)
     if not isinstance(payload, dict):
-        raise ValueError("DWD-Antwort hat kein Objektformat")
+        raise TypeError("DWD-Antwort hat kein Objektformat")
     if "warnings" not in payload:
         raise ValueError("DWD-Antwort enthält kein warnings-Feld")
     grouped = payload["warnings"]
     if not isinstance(grouped, dict):
-        raise ValueError("DWD-Antwort enthält keine Warnungsgruppen")
+        raise TypeError("DWD-Antwort enthält keine Warnungsgruppen")
     warnings: list[dict[str, Any]] = []
     for region_id, region_warnings in grouped.items():
         if not isinstance(region_warnings, list):

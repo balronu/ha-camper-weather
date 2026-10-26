@@ -48,5 +48,5 @@ def test_dwd_empty_warning_groups_are_a_valid_empty_result():
 
 
 def test_dwd_invalid_payload_is_not_reported_as_no_warnings():
-    with pytest.raises(ValueError):
+    with pytest.raises((TypeError, ValueError)):
         asyncio.run(async_dwd_warnings(FakeSession("{}")))
