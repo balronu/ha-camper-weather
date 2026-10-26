@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.0-beta.4] – 2026-10-26
+
+### Deutsch
+- MapLibre-Lifecycle mit Timeout, ResizeObserver und verständlichem Fehlerzustand stabilisiert.
+- Aktivitätsspeicherung auf einen bestätigten Persistenz-Request verkürzt.
+- Lovelace-Standortauswahl für GPS, Home-Zone, manuelle Orte und gespeicherte Reiseziele ergänzt.
+- Responsive Navigation, einklappbare Bereiche, kompakte Vorhersage und SVG-Wettericons verbessert.
+- DWD- und Radarabrufe mit begrenztem Timeout und Cache entlastet.
+
+### English
+- Stabilized the MapLibre lifecycle with timeout, resize handling, and an explicit error state.
+- Reduced activity saving to one confirmed persistence request.
+- Added Lovelace location selection for GPS, home zone, manual places, and saved destinations.
+- Improved responsive navigation, collapsible sections, compact forecasts, and SVG weather icons.
+- Added bounded DWD and radar caching to reduce repeated provider load.
+
 ## [0.1.0-beta.3] – 2026-10-26
 
 ### Deutsch

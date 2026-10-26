@@ -47,7 +47,9 @@ async def async_met_norway(session: ClientSession, latitude: float, longitude: f
 
 
 async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:
-    async with session.get(DWD_URL, timeout=20) as response:
+    # The endpoint is a relatively large JSONP document. Keep the request
+    # bounded so a provider outage cannot hold up the coordinator indefinitely.
+    async with session.get(DWD_URL, timeout=10) as response:
         response.raise_for_status()
         raw = await response.text()
     # The WarnWetter endpoint returns JavaScript JSONP, not plain JSON.

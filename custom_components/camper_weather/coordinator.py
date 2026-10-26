@@ -57,6 +57,18 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_query_location: tuple[float, float] | None = None
 
     def _location(self) -> tuple[float, float, str, bool]:
+        runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
+        override = getattr(runtime, "current", {}) if runtime else {}
+        runtime_mode = override.get("mode")
+        if runtime_mode == LOCATION_HOME_ZONE:
+            state = self.hass.states.get("zone.home")
+            lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
+            if self._valid_coordinates(lat, lon):
+                self._last_valid_location = (float(lat), float(lon))
+                return float(lat), float(lon), "home_zone", False
+        if runtime_mode in {LOCATION_MANUAL, LOCATION_DESTINATION} and self._valid_coordinates(override.get("latitude"), override.get("longitude")):
+            self._last_valid_location = (float(override["latitude"]), float(override["longitude"]))
+            return float(override["latitude"]), float(override["longitude"]), override.get("name", runtime_mode), False
         mode = self.options.get(CONF_LOCATION_MODE, LOCATION_MANUAL)
         if mode == LOCATION_TRACKER:
             state = self.hass.states.get(self.options.get(CONF_TRACKER, ""))
@@ -145,7 +157,12 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             provider_status["dwd"] = {"enabled": True, "status": dwd_status}
         elif self.options.get(CONF_DWD_ENABLED, True):
             try:
-                warnings = await async_dwd_warnings(session)
+                cached = getattr(self, "_dwd_cache", None)
+                if cached and datetime.now(UTC) - cached[0] < timedelta(minutes=10):
+                    warnings = cached[1]
+                else:
+                    warnings = await async_dwd_warnings(session)
+                    self._dwd_cache = (datetime.now(UTC), warnings)
                 sources.append("dwd")
                 now_ms = datetime.now(UTC).timestamp() * 1000
                 warnings = [warning for warning in warnings if not warning.get("start") or not warning.get("end") or float(warning["start"]) <= now_ms <= float(warning["end"])]
@@ -158,7 +175,12 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 provider_status["dwd"] = {"enabled": True, "status": "unavailable", "error": type(err).__name__}
         if self.options.get(CONF_RADAR_ENABLED, True):
             try:
-                radar = await async_radar_metadata(session)
+                cached_radar = getattr(self, "_radar_cache", None)
+                if cached_radar and datetime.now(UTC) - cached_radar[0] < timedelta(minutes=5):
+                    radar = cached_radar[1]
+                else:
+                    radar = await async_radar_metadata(session)
+                    self._radar_cache = (datetime.now(UTC), radar)
                 sources.append("rainviewer")
                 provider_status["rainviewer"] = {"enabled": True, "status": "ok", "last_success": radar.get("retrieved_at"), "frame_count": len(radar.get("frames", []))}
             except (ClientError, TimeoutError, ValueError) as err:
