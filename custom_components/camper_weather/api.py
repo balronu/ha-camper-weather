@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 from typing import Any
+
 import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-
 from .const import DOMAIN
 
 WS_CARD_DATA = "camper_weather/card_data"

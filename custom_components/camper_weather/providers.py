@@ -28,13 +28,12 @@ async def async_met_norway(session: ClientSession, latitude: float, longitude: f
     async with session.get(MET_URL, params=params, headers=headers, timeout=20) as response:
         response.raise_for_status()
         payload = await response.json()
-    units = payload.get("properties", {}).get("meta", {}).get("units", {})
     result: list[Hour] = []
     for item in payload.get("properties", {}).get("timeseries", []):
         instant = item.get("data", {}).get("instant", {}).get("details", {})
         next_hour = item.get("data", {}).get("next_1_hours", {}).get("details", {})
         try:
-            timestamp = datetime.fromisoformat(item["time"].replace("Z", "+00:00"))
+            timestamp = datetime.fromisoformat(item["time"])
         except (KeyError, ValueError):
             continue
         result.append(Hour(
@@ -67,4 +66,3 @@ async def async_radar_metadata(session: ClientSession) -> dict[str, Any]:
         "tile_template": "https://tilecache.rainviewer.com{path}/256/{z}/{x}/{y}/2/1_1.png",
         "retrieved_at": datetime.now(UTC).isoformat(),
     }
-

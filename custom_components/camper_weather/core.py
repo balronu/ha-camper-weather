@@ -117,12 +117,12 @@ def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:
     result: list[Hour] = []
     for index, raw_time in enumerate(times):
         try:
-            timestamp = datetime.fromisoformat(str(raw_time).replace("Z", "+00:00"))
+            timestamp = datetime.fromisoformat(str(raw_time))
         except ValueError:
             continue
-        def value(key: str):
-            values = fields[key]
-            return values[index] if index < len(values) else None
-        result.append(Hour(timestamp, *(value(key) for key in fields)))
+        values = tuple(
+            field_values[index] if index < len(field_values) else None
+            for field_values in fields.values()
+        )
+        result.append(Hour(timestamp, *values))
     return tuple(result)
-
