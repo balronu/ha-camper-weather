@@ -146,9 +146,10 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         latitude, longitude, location_source, location_stale = self._location()
         location_runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
         location_revision = getattr(location_runtime, "revision", 0)
+        location_mode = (getattr(location_runtime, "current", {}) or {}).get("mode") or self.options.get(CONF_LOCATION_MODE, LOCATION_MANUAL)
         current_location = (latitude, longitude)
         if self.data and not location_stale and not self.data.get("errors") and self._last_query_location and self._distance_km(self._last_query_location, current_location) < 0.5:
-            retained = {**self.data, "location": {**self.data.get("location", {}), "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()}}
+            retained = {**self.data, "location": {**self.data.get("location", {}), "mode": location_mode, "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()}, "location_revision": location_revision}
             return retained
         self._last_query_location = current_location
         session = async_get_clientsession(self.hass)
@@ -243,7 +244,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("Standort hat sich während der Wetterabfrage geändert")
         self._location_retry_count = 0
         return {
-            "location": {"latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()},
+            "location": {"mode": location_mode, "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()},
             "location_revision": location_revision,
             "hours": hours,
             "current": current,

@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "camper_weather"
-VERSION = "0.1.0-beta.6"
+VERSION = "0.1.0-beta.7"
 CARD_VERSION = VERSION
 CARD_PATH = "/camper_weather/camper-weather-card.js"
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER]
@@ -36,6 +36,7 @@ DEFAULT_FROST_TEMP = 2.0
 OPEN_METEO_URL = "https://api.open-meteo.com/v1/forecast"
 MET_URL = "https://api.met.no/weatherapi/locationforecast/2.0/compact"
 DWD_URL = "https://www.dwd.de/DWD/warnungen/warnapp/json/warnings.json"
+DWD_CAP_INDEX_URL = "https://opendata.dwd.de/weather/alerts/cap/DISTRICT_CELLS_STAT/"
 RAINVIEWER_URL = "https://api.rainviewer.com/public/weather-maps.json"
 DWD_WARNINGS_PREFIX = "warnWetter.loadWarnings("
 GEOCODING_URL = "https://nominatim.openstreetmap.org/search"

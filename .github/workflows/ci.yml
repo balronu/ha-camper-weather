@@ -43,6 +43,7 @@ jobs:
           fi
           test -x "$CHROMIUM_PATH"
           CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/map-browser-test.mjs
+          CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/location-browser-test.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:

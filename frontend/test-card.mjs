@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../custom_components/camper_weather/www/camper-weather-card.js", import.meta.url), "utf8");
 const required = [
-  'const VERSION = "0.1.0-beta.6"',
+  'const VERSION = "0.1.0-beta.7"',
   "getStubConfig() { return {}; }",
   'type:"camper_weather/list_entries"',
   "openfreemap.org/styles/liberty",

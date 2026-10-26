@@ -5,6 +5,7 @@ does not record a GPS history.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 from uuid import uuid4
 
@@ -21,6 +22,7 @@ class LocationStore:
         self.destinations: dict[str, dict[str, Any]] = {}
         self.revision = 0
         self._loaded = False
+        self._lock = asyncio.Lock()
 
     async def async_load(self) -> None:
         if self._loaded:
@@ -39,11 +41,15 @@ class LocationStore:
         await self._store.async_save({"current": self.current, "destinations": self.destinations, "revision": self.revision})
 
     async def async_set_current(self, value: dict[str, Any]) -> dict[str, Any]:
-        await self.async_load()
-        self.current = dict(value)
-        self.revision += 1
-        await self._save()
-        return self.current
+        lock = getattr(self, "_lock", None)
+        if lock is None:
+            lock = self._lock = asyncio.Lock()
+        async with lock:
+            await self.async_load()
+            self.current = dict(value)
+            self.revision += 1
+            await self._save()
+            return dict(self.current)
 
     async def async_save_destination(self, value: dict[str, Any]) -> dict[str, Any]:
         await self.async_load()
