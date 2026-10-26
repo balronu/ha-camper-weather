@@ -11,7 +11,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .api import async_setup_websocket
-
 from .const import CARD_PATH, CARD_VERSION, DOMAIN, PLATFORMS
 from .coordinator import CamperWeatherCoordinator
 
