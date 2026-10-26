@@ -15,7 +15,7 @@ async def async_open_meteo(session: ClientSession, latitude: float, longitude: f
     params = {
         "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "UTC",
         "forecast_days": 7,
-        "hourly": "temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,uv_index,snowfall,weather_code,thunderstorm_probability",
+        "hourly": "temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,uv_index,snowfall,weather_code,thunderstorm_probability,is_day",
         "current": "temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code",
     }
     async with session.get(OPEN_METEO_URL, params=params, timeout=20) as response:
@@ -44,6 +44,69 @@ async def async_met_norway(session: ClientSession, latitude: float, longitude: f
             instant.get("wind_speed"), instant.get("wind_speed_of_gust"),
         ))
     return tuple(result)
+
+
+def _point_in_polygon(latitude: float, longitude: float, polygon: list[tuple[float, float]]) -> bool:
+    inside = False
+    for index, (lat_a, lon_a) in enumerate(polygon):
+        lat_b, lon_b = polygon[index - 1]
+        if (lon_a > longitude) != (lon_b > longitude) and latitude < (lat_b - lat_a) * (longitude - lon_a) / (lon_b - lon_a) + lat_a:
+            inside = not inside
+    return inside
+
+
+def filter_dwd_warnings(
+    warnings: list[dict[str, Any]], *, latitude: float, longitude: float,
+    elevation: float | None = None, location_name: str | None = None,
+) -> list[dict[str, Any]]:
+    """Filter active DWD records without turning unknown scope into all-clear.
+
+    The WarnApp JSON feed is district-level and intentionally has no polygons.
+    Records with a polygon are checked geometrically; district-only records are
+    retained with an explicit uncertainty marker for conservative scoring.
+    """
+    now_ms = datetime.now(UTC).timestamp() * 1000
+    result: list[dict[str, Any]] = []
+    seen: set[tuple[Any, ...]] = set()
+    for warning in warnings:
+        try:
+            if warning.get("start") and float(warning["start"]) > now_ms:
+                continue
+            if warning.get("end") and float(warning["end"]) < now_ms:
+                continue
+        except (TypeError, ValueError):
+            continue
+        altitude_start = warning.get("altitudeStart")
+        altitude_end = warning.get("altitudeEnd")
+        try:
+            if elevation is not None and altitude_start is not None and elevation < float(altitude_start):
+                continue
+            if elevation is not None and altitude_end is not None and elevation > float(altitude_end):
+                continue
+        except (TypeError, ValueError):
+            pass
+        item = dict(warning)
+        item["altitude_uncertain"] = bool((altitude_start is not None or altitude_end is not None) and elevation is None)
+        polygon = warning.get("polygon")
+        parsed_polygon: list[tuple[float, float]] = []
+        if isinstance(polygon, str):
+            for point in polygon.split():
+                try:
+                    lat, lon = point.split(",", 1)
+                    parsed_polygon.append((float(lat), float(lon)))
+                except (ValueError, TypeError):
+                    continue
+        if parsed_polygon:
+            if not _point_in_polygon(latitude, longitude, parsed_polygon):
+                continue
+        else:
+            region_name = str(warning.get("regionName") or "").casefold()
+            item["location_uncertain"] = not bool(location_name and region_name and region_name in location_name.casefold())
+        key = (item.get("event"), item.get("start"), item.get("end"), item.get("regionName"), item.get("level"))
+        if key not in seen:
+            seen.add(key)
+            result.append(item)
+    return result
 
 
 async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:

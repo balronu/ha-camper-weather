@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 
 from .api import async_setup_websocket
-from .const import CARD_PATH, CARD_VERSION, DOMAIN, PLATFORMS
+from .const import CARD_PATH, CARD_VERSION, CONF_LOCATION_MODE, DOMAIN, PLATFORMS
 from .coordinator import CamperWeatherCoordinator
 from .location import LocationStore
 from .planner import ActivityStore
@@ -39,7 +39,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await coordinator.async_config_entry_first_refresh()
     planner = ActivityStore(hass)
     await planner.async_load()
-    location = LocationStore(hass, entry.entry_id)
+    location = LocationStore(hass, entry.entry_id, coordinator.options.get(CONF_LOCATION_MODE, "config"))
     await location.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator, "planner": planner, "location": location}
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))

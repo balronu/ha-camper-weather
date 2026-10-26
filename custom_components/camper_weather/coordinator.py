@@ -36,8 +36,8 @@ from .const import (
     PROVIDER_MET_NORWAY,
     PROVIDER_OPEN_METEO,
 )
-from .core import Hour, activity_score, camping_score, suggest_activity_windows
-from .providers import async_dwd_warnings, async_met_norway, async_open_meteo, async_radar_metadata
+from .core import Hour, activity_score, apply_official_warning_risks, camping_score, suggest_activity_windows
+from .providers import async_dwd_warnings, async_met_norway, async_open_meteo, async_radar_metadata, filter_dwd_warnings
 
 LOGGER = logging.getLogger(__name__)
 
@@ -60,6 +60,16 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
         override = getattr(runtime, "current", {}) if runtime else {}
         runtime_mode = override.get("mode")
+        if runtime_mode == LOCATION_TRACKER:
+            state = self.hass.states.get(self.options.get(CONF_TRACKER, ""))
+            if state and state.state not in {"unknown", "unavailable"}:
+                lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
+                if self._valid_coordinates(lat, lon):
+                    self._last_valid_location = (float(lat), float(lon))
+                    return float(lat), float(lon), "tracker", False
+            if self._last_valid_location:
+                return (*self._last_valid_location, "tracker_stale", True)
+            return float(self.hass.config.latitude), float(self.hass.config.longitude), "tracker_fallback", True
         if runtime_mode == LOCATION_HOME_ZONE:
             state = self.hass.states.get("zone.home")
             lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
@@ -93,7 +103,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             return float(lat), float(lon), "manual", False
         if self._last_valid_location:
             return (*self._last_valid_location, mode, True)
-        return float(self.hass.config.latitude), float(self.hass.config.longitude), "home_assistant", True
+        return float(self.hass.config.latitude), float(self.hass.config.longitude), f"{mode}_fallback", True
 
     @staticmethod
     def _valid_coordinates(latitude: Any, longitude: Any) -> bool:
@@ -111,9 +121,11 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
 
     async def _async_update_data(self) -> dict[str, Any]:
         latitude, longitude, location_source, location_stale = self._location()
+        location_runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
+        location_revision = getattr(location_runtime, "revision", 0)
         current_location = (latitude, longitude)
         if self.data and not location_stale and not self.data.get("errors") and self._last_query_location and self._distance_km(self._last_query_location, current_location) < 0.5:
-            retained = {**self.data, "location": {**self.data.get("location", {}), "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale}}
+            retained = {**self.data, "location": {**self.data.get("location", {}), "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "updated_at": datetime.now(UTC).isoformat()}}
             return retained
         self._last_query_location = current_location
         session = async_get_clientsession(self.hass)
@@ -164,15 +176,26 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     warnings = await async_dwd_warnings(session)
                     self._dwd_cache = (datetime.now(UTC), warnings)
                 sources.append("dwd")
-                now_ms = datetime.now(UTC).timestamp() * 1000
-                warnings = [warning for warning in warnings if not warning.get("start") or not warning.get("end") or float(warning["start"]) <= now_ms <= float(warning["end"])]
-                dwd_status = "active" if warnings else "no_warnings"
+                warnings = filter_dwd_warnings(warnings, latitude=latitude, longitude=longitude, elevation=current.elevation, location_name=location_source)
+                dwd_status = "active_location_uncertain" if any(warning.get("location_uncertain") or warning.get("altitude_uncertain") for warning in warnings) else "active" if warnings else "no_warnings"
                 provider_status["dwd"] = {"enabled": True, "status": dwd_status, "last_success": datetime.now(UTC).isoformat(), "warning_count": len(warnings)}
             except (ClientError, TimeoutError, ValueError) as err:
                 LOGGER.debug("DWD warnings unavailable: %s", type(err).__name__)
                 errors.append("dwd_failed")
                 dwd_status = "unavailable"
                 provider_status["dwd"] = {"enabled": True, "status": "unavailable", "error": type(err).__name__}
+        warning_score, official_risks = apply_official_warning_risks(score, warnings)
+        if official_risks:
+            score = warning_score
+            risks = [*risks, *official_risks]
+        recommendations = {activity: suggest_activity_windows(list(hours), activity, reference_time=datetime.now(UTC)) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")}
+        if any(risk.severity == "critical" for risk in official_risks):
+            recommendations = {activity: [] for activity in recommendations}
+        elif official_risks:
+            for items in recommendations.values():
+                for item in items:
+                    item["score"] = min(item["score"], score if score is not None else 0)
+                    item["risks"] = [*item["risks"], *[risk.__dict__ for risk in official_risks]]
         if self.options.get(CONF_RADAR_ENABLED, True):
             try:
                 cached_radar = getattr(self, "_radar_cache", None)
@@ -187,8 +210,18 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 LOGGER.debug("RainViewer metadata unavailable: %s", type(err).__name__)
                 errors.append("rainviewer_failed")
                 provider_status["rainviewer"] = {"enabled": True, "status": "unavailable", "error": type(err).__name__}
+        latest_location = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
+        latest_revision = getattr(latest_location, "revision", location_revision)
+        if latest_revision != location_revision:
+            if getattr(self, "_location_retry_count", 0) == 0:
+                self._location_retry_count = 1
+                return await self._async_update_data()
+            self._location_retry_count = 0
+            raise UpdateFailed("Standort hat sich während der Wetterabfrage geändert")
+        self._location_retry_count = 0
         return {
-            "location": {"latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale},
+            "location": {"latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "updated_at": datetime.now(UTC).isoformat()},
+            "location_revision": location_revision,
             "hours": hours,
             "current": current,
             "camping_score": score,
@@ -201,7 +234,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "provider_status": provider_status,
             "updated_at": datetime.now(UTC),
             "forecast": [{"time": h.time.isoformat(), "temperature": h.temperature, "apparent_temperature": h.apparent_temperature, "wind": h.wind, "gusts": h.gusts, "precipitation": h.precipitation, "probability": h.precipitation_probability, "uv": h.uv, "weather_code": h.weather_code, "score": camping_score(h, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))[0]} for h in hours[:168]],
-            "recommendations": {activity: suggest_activity_windows(list(hours), activity) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")},
+            "recommendations": recommendations,
         }
 
     def activity(self, activity: str) -> tuple[int | None, list[Any]]:

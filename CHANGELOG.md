@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.0-beta.5] – 2026-10-26
+
+### Deutsch
+- GPS-Tracker-Overrides korrigiert: Eine Auswahl von `device_tracker.wohnmobil_zoe` bleibt vom Home-Zone-Config-Modus getrennt.
+- Tracker-Ausfälle werden als veraltet oder technischer Ersatzstandort gekennzeichnet, nie als aktuelle GPS-Position.
+- Standortrevisionen verhindern das Speichern von Freizeitplänen mit veralteten Koordinaten.
+- DWD-Warnungen werden zeitlich, höhenbezogen und – sofern Geometrie vorliegt – geometrisch gefiltert; unbekannte Gültigkeit bleibt als Unsicherheit sichtbar.
+- Amtliche Warnstufen fließen konservativ in den Camping-Score ein.
+- Aktivitätsbewertungen berücksichtigen Tageslicht; Schwimmen und Skifahren behaupten ohne Spezialdaten keine vollständige Sicherheit bzw. Tauglichkeit.
+- WebSocket-Registrierung und Standort-/DWD-Regressionsfälle erweitert.
+
+### English
+- Fixed GPS tracker overrides so selecting `device_tracker.wohnmobil_zoe` remains separate from a Home Zone config mode.
+- Tracker failures are marked stale or technical fallback, never as the current GPS position.
+- Location revisions prevent saving plans against stale coordinates.
+- DWD warnings are filtered by time, altitude, and geometry where available; unknown scope remains visible as uncertainty.
+- Official warning levels now conservatively affect the camping score.
+- Activity scores account for daylight; swimming and skiing do not claim complete safety or suitability without specialist data.
+- Expanded WebSocket registration and location/DWD regression coverage.
+
 ## [0.1.0-beta.4] – 2026-10-26
 
 ### Deutsch

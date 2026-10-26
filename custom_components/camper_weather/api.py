@@ -55,6 +55,7 @@ async def _card_data(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         "entry_id": entry_id,
         "name": next((entry.title for entry in entries if entry.entry_id == entry_id), "Camper Weather"),
         "location": data.get("location"), "camping_score": data.get("camping_score"),
+        "location_revision": data.get("location_revision", 0),
         "current": {key: (getattr(current, key).isoformat() if key == "time" and getattr(current, key) else getattr(current, key)) for key in ("time", "temperature", "apparent_temperature", "precipitation", "wind", "gusts", "uv")} if current else None,
         "risks": [risk.__dict__ for risk in data.get("risks", [])], "warnings": data.get("warnings", [])[:20],
         "forecast": data.get("forecast", [])[:168], "radar": data.get("radar", {}),
@@ -202,10 +203,10 @@ def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
     # Parsing also rejects malformed user input; the stored value remains ISO text.
     from datetime import datetime
     datetime.fromisoformat(start_at)
-    return {"id": msg.get("id"), "activity": activity, "start_at": start_at, "duration_minutes": duration, "location_mode": msg.get("location_mode", "current"), "latitude": msg.get("latitude"), "longitude": msg.get("longitude")}
+    return {"id": msg.get("id"), "activity": activity, "start_at": start_at, "duration_minutes": duration, "location_mode": msg.get("location_mode", "current"), "latitude": msg.get("latitude"), "longitude": msg.get("longitude"), "location_revision": msg.get("location_revision")}
 
 
-@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_SAVE, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("id"): vol.Coerce(str), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float)})
+@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_SAVE, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("id"): vol.Coerce(str), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
 @websocket_api.async_response
 async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     result = _planner_data(hass, msg["entry_id"])
@@ -218,6 +219,10 @@ async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
     store, coordinator = result
+    runtime_location = hass.data.get(DOMAIN, {}).get(msg["entry_id"], {}).get("location")
+    if msg.get("location_mode", "current") == "current" and msg.get("location_revision") is not None and msg["location_revision"] != getattr(runtime_location, "revision", 0):
+        connection.send_error(msg["id"], "stale_location", "Der Standort hat sich geändert. Bitte die Aktivität neu bewerten.")
+        return
     item = await store.async_save(item)
     connection.send_result(msg["id"], {**item, "assessment": assess_plan(item, list((coordinator.data or {}).get("hours", ())))})
 
@@ -232,7 +237,7 @@ async def _planner_delete(hass: HomeAssistant, connection: websocket_api.ActiveC
     connection.send_result(msg["id"], {"deleted": await result[0].async_delete(msg["plan_id"])})
 
 
-@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_ASSESS, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float)})
+@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_ASSESS, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
 @websocket_api.async_response
 async def _planner_assess(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     result = _planner_data(hass, msg["entry_id"])
