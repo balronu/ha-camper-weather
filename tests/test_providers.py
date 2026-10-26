@@ -3,7 +3,7 @@ import asyncio
 import pytest
 
 from custom_components.camper_weather.core import Hour
-from custom_components.camper_weather.providers import async_dwd_warnings, async_met_norway, filter_dwd_warnings
+from custom_components.camper_weather.providers import async_dwd_warnings, async_met_norway, deduplicate_dwd_warnings, filter_dwd_warnings
 
 
 class FakeResponse:
@@ -65,3 +65,20 @@ def test_dwd_filter_removes_expired_and_low_altitude_warnings():
 def test_dwd_filter_marks_district_only_scope_as_uncertain():
     result = filter_dwd_warnings([{"level": 2, "event": "WIND", "regionName": "Kreis Beispiel"}], latitude=51.0, longitude=10.0)
     assert result[0]["location_uncertain"] is True
+
+
+def test_dwd_dedup_keeps_periods_and_areas_separate():
+    base = {"warningId": "abc", "event": "Wind", "start": 100, "end": 200, "region_id": "1", "regionName": "Nord", "level": 2}
+    result = deduplicate_dwd_warnings([base, {**base, "description": "gleich"}, {**base, "end": 300}, {**base, "region_id": "2", "regionName": "Süd"}])
+    assert len(result) == 3
+    assert all(item["summary"] == "Wind" for item in result)
+
+
+def test_dwd_filter_sorting_and_summary_are_stable():
+    result = filter_dwd_warnings([
+        {"level": 1, "event": "Regen", "regionName": "Kreis", "start": 0, "end": 4102444800000},
+        {"level": 3, "event": "Sturm", "regionName": "Kreis", "start": 0, "end": 4102444800000},
+        {"level": 3, "event": "Sturm", "regionName": "Kreis", "start": 0, "end": 4102444800000},
+    ], latitude=51.0, longitude=10.0)
+    assert [item["level"] for item in result] == [3, 1]
+    assert result[0]["summary"] == "Sturm"

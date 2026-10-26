@@ -2,7 +2,7 @@
 
 **Wetter-, Camping- und Freizeitassistent für Wohnmobile in Home Assistant.**
 
-> **v0.1.0-beta.5:** Beta für isolierte Tests und einen manuellen Home-Assistant-Praxistest. Nicht automatisch in VM 104 installieren.
+> **v0.1.0-beta.6:** Beta für isolierte Tests und einen manuellen Home-Assistant-Praxistest. Nicht automatisch in VM 104 installieren.
 
 ## Deutsch
 

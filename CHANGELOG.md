@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0-beta.6] – 2026-10-26
+
+### Deutsch
+- DWD-Warnungen werden anhand offizieller Kennungen beziehungsweise stabiler fachlicher Merkmale dedupliziert, nach Schweregrad sortiert und nicht über unterschiedliche Zeiträume oder Gebiete zusammengeführt.
+- Aktivitätswarnungen werden einmalig und mit kurzen Zusammenfassungen angezeigt; vollständige Warntexte bleiben aufklappbar.
+- GPS-Tracker-Zustände unterscheiden gültige Koordinaten, fehlende/unbekannte Tracker, nicht verfügbare Tracker, veraltete Positionen und technische Ersatzstandorte.
+- Mobile Stundenprognose nutzt Tag-/Nacht-Symbole, `is_day`, lokale Zeitdarstellung und eine gepufferte Temperaturskala.
+- Providerstatus werden deutsch/englisch verständlich dargestellt; technische Fehlercodes bleiben in einer Diagnoseansicht verfügbar.
+- Plan-Löschen erfordert eine Bestätigung. Bestehende Einstellungen, Ziele und Aktivitäten bleiben erhalten.
+
+### English
+- DWD warnings are deduplicated by official identifiers or stable domain attributes, sorted by severity, and kept separate across periods and areas.
+- Activity warnings are counted once and shown as short summaries with expandable full text.
+- GPS tracker states distinguish valid coordinates, missing/unknown/unavailable trackers, stale positions, and technical fallback locations.
+- The mobile hourly forecast now uses day/night icons, `is_day`, local time formatting, and a padded temperature scale.
+- Provider statuses have German/English user-facing labels while raw error codes remain available in a diagnostic disclosure.
+- Deleting a saved plan requires confirmation. Existing settings, destinations, and activities are preserved.
+
 ## [0.1.0-beta.5] – 2026-10-26
 
 ### Deutsch

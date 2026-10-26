@@ -55,19 +55,25 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         )
         self._last_valid_location: tuple[float, float] | None = None
         self._last_query_location: tuple[float, float] | None = None
+        self._location_diagnostic: dict[str, Any] = {"status": "unknown"}
+        self._update_generation = 0
 
     def _location(self) -> tuple[float, float, str, bool]:
         runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
         override = getattr(runtime, "current", {}) if runtime else {}
         runtime_mode = override.get("mode")
         if runtime_mode == LOCATION_TRACKER:
-            state = self.hass.states.get(self.options.get(CONF_TRACKER, ""))
+            tracker_id = self.options.get(CONF_TRACKER, "")
+            state = self.hass.states.get(tracker_id)
             if state and state.state not in {"unknown", "unavailable"}:
                 lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
                 if self._valid_coordinates(lat, lon):
                     self._last_valid_location = (float(lat), float(lon))
+                    self._location_diagnostic = {"status": "valid", "entity_id": tracker_id, "tracker_state": state.state, "updated_at": self._state_timestamp(state)}
                     return float(lat), float(lon), "tracker", False
+            self._location_diagnostic = {"status": "unknown_tracker" if state is None else "unavailable_tracker" if state.state == "unavailable" else "missing_coordinates", "entity_id": tracker_id, "tracker_state": getattr(state, "state", None)}
             if self._last_valid_location:
+                self._location_diagnostic["status"] = "stale"
                 return (*self._last_valid_location, "tracker_stale", True)
             return float(self.hass.config.latitude), float(self.hass.config.longitude), "tracker_fallback", True
         if runtime_mode == LOCATION_HOME_ZONE:
@@ -75,35 +81,50 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
             if self._valid_coordinates(lat, lon):
                 self._last_valid_location = (float(lat), float(lon))
+                self._location_diagnostic = {"status": "valid", "source": "home_zone"}
                 return float(lat), float(lon), "home_zone", False
         if runtime_mode in {LOCATION_MANUAL, LOCATION_DESTINATION} and self._valid_coordinates(override.get("latitude"), override.get("longitude")):
             self._last_valid_location = (float(override["latitude"]), float(override["longitude"]))
+            self._location_diagnostic = {"status": "valid", "source": runtime_mode}
             return float(override["latitude"]), float(override["longitude"]), override.get("name", runtime_mode), False
         mode = self.options.get(CONF_LOCATION_MODE, LOCATION_MANUAL)
         if mode == LOCATION_TRACKER:
-            state = self.hass.states.get(self.options.get(CONF_TRACKER, ""))
+            tracker_id = self.options.get(CONF_TRACKER, "")
+            state = self.hass.states.get(tracker_id)
             if state and state.state not in {"unknown", "unavailable"}:
                 lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
                 if self._valid_coordinates(lat, lon):
                     self._last_valid_location = (float(lat), float(lon))
+                    self._location_diagnostic = {"status": "valid", "entity_id": tracker_id, "tracker_state": state.state, "updated_at": self._state_timestamp(state)}
                     return float(lat), float(lon), "tracker", False
+            self._location_diagnostic = {"status": "unknown_tracker" if state is None else "unavailable_tracker" if state.state == "unavailable" else "missing_coordinates", "entity_id": tracker_id, "tracker_state": getattr(state, "state", None)}
         if mode == LOCATION_HOME_ZONE:
             state = self.hass.states.get("zone.home")
             lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
             if self._valid_coordinates(lat, lon):
                 self._last_valid_location = (float(lat), float(lon))
+                self._location_diagnostic = {"status": "valid", "source": "home_zone"}
                 return float(lat), float(lon), "home_zone", False
         lat = self.options.get(CONF_LATITUDE, self.hass.config.latitude)
         lon = self.options.get(CONF_LONGITUDE, self.hass.config.longitude)
         if mode == LOCATION_DESTINATION and self._valid_coordinates(lat, lon):
             self._last_valid_location = (float(lat), float(lon))
+            self._location_diagnostic = {"status": "valid", "source": "destination"}
             return float(lat), float(lon), self.options.get(CONF_DESTINATION_NAME, "destination"), False
         if mode == LOCATION_MANUAL and self._valid_coordinates(lat, lon):
             self._last_valid_location = (float(lat), float(lon))
+            self._location_diagnostic = {"status": "valid", "source": "manual"}
             return float(lat), float(lon), "manual", False
         if self._last_valid_location:
+            self._location_diagnostic = {"status": "stale", "source": mode}
             return (*self._last_valid_location, mode, True)
+        self._location_diagnostic = {"status": "fallback", "source": mode}
         return float(self.hass.config.latitude), float(self.hass.config.longitude), f"{mode}_fallback", True
+
+    @staticmethod
+    def _state_timestamp(state: Any) -> str | None:
+        value = getattr(state, "last_updated", None) or getattr(state, "last_changed", None)
+        return value.isoformat() if hasattr(value, "isoformat") else None
 
     @staticmethod
     def _valid_coordinates(latitude: Any, longitude: Any) -> bool:
@@ -120,12 +141,14 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         return 6371 * 2 * math.asin(min(1, math.sqrt(value)))
 
     async def _async_update_data(self) -> dict[str, Any]:
+        self._update_generation += 1
+        update_generation = self._update_generation
         latitude, longitude, location_source, location_stale = self._location()
         location_runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
         location_revision = getattr(location_runtime, "revision", 0)
         current_location = (latitude, longitude)
         if self.data and not location_stale and not self.data.get("errors") and self._last_query_location and self._distance_km(self._last_query_location, current_location) < 0.5:
-            retained = {**self.data, "location": {**self.data.get("location", {}), "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "updated_at": datetime.now(UTC).isoformat()}}
+            retained = {**self.data, "location": {**self.data.get("location", {}), "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()}}
             return retained
         self._last_query_location = current_location
         session = async_get_clientsession(self.hass)
@@ -212,7 +235,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 provider_status["rainviewer"] = {"enabled": True, "status": "unavailable", "error": type(err).__name__}
         latest_location = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
         latest_revision = getattr(latest_location, "revision", location_revision)
-        if latest_revision != location_revision:
+        if latest_revision != location_revision or update_generation != self._update_generation:
             if getattr(self, "_location_retry_count", 0) == 0:
                 self._location_retry_count = 1
                 return await self._async_update_data()
@@ -220,7 +243,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             raise UpdateFailed("Standort hat sich während der Wetterabfrage geändert")
         self._location_retry_count = 0
         return {
-            "location": {"latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "updated_at": datetime.now(UTC).isoformat()},
+            "location": {"latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()},
             "location_revision": location_revision,
             "hours": hours,
             "current": current,
@@ -233,7 +256,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "dwd_status": dwd_status,
             "provider_status": provider_status,
             "updated_at": datetime.now(UTC),
-            "forecast": [{"time": h.time.isoformat(), "temperature": h.temperature, "apparent_temperature": h.apparent_temperature, "wind": h.wind, "gusts": h.gusts, "precipitation": h.precipitation, "probability": h.precipitation_probability, "uv": h.uv, "weather_code": h.weather_code, "score": camping_score(h, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))[0]} for h in hours[:168]],
+            "forecast": [{"time": h.time.isoformat(), "temperature": h.temperature, "apparent_temperature": h.apparent_temperature, "wind": h.wind, "gusts": h.gusts, "precipitation": h.precipitation, "probability": h.precipitation_probability, "uv": h.uv, "weather_code": h.weather_code, "is_day": h.is_day, "score": camping_score(h, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))[0]} for h in hours[:168]],
             "recommendations": recommendations,
         }
 
