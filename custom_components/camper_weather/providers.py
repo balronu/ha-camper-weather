@@ -1,12 +1,13 @@
 """Network adapters for the explicitly supported public providers."""
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
 from aiohttp import ClientSession
 
-from .const import DWD_URL, MET_URL, OPEN_METEO_URL, RAINVIEWER_URL
+from .const import DWD_URL, DWD_WARNINGS_PREFIX, MET_URL, OPEN_METEO_URL, RAINVIEWER_URL
 from .core import Hour, normalize_open_meteo
 
 
@@ -48,10 +49,27 @@ async def async_met_norway(session: ClientSession, latitude: float, longitude: f
 async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:
     async with session.get(DWD_URL, timeout=20) as response:
         response.raise_for_status()
-        payload = await response.json(content_type=None)
-    if isinstance(payload, dict):
-        return list(payload.get("warnings", []))
-    return []
+        raw = await response.text()
+    # The WarnWetter endpoint returns JavaScript JSONP, not plain JSON.
+    text = raw.strip()
+    if text.startswith(DWD_WARNINGS_PREFIX):
+        text = text[len(DWD_WARNINGS_PREFIX):].rstrip(";)").strip()
+    payload = json.loads(text)
+    if not isinstance(payload, dict):
+        raise ValueError("DWD-Antwort hat kein Objektformat")
+    if "warnings" not in payload:
+        raise ValueError("DWD-Antwort enthält kein warnings-Feld")
+    grouped = payload["warnings"]
+    if not isinstance(grouped, dict):
+        raise ValueError("DWD-Antwort enthält keine Warnungsgruppen")
+    warnings: list[dict[str, Any]] = []
+    for region_id, region_warnings in grouped.items():
+        if not isinstance(region_warnings, list):
+            continue
+        for warning in region_warnings:
+            if isinstance(warning, dict):
+                warnings.append({**warning, "region_id": str(region_id)})
+    return warnings
 
 
 async def async_radar_metadata(session: ClientSession) -> dict[str, Any]:
