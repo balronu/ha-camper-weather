@@ -96,3 +96,12 @@ def test_critical_official_warning_overrides_comfort_score():
     score, risks = apply_official_warning_risks(91, [{"level": 3, "event": "STURM"}])
     assert score == 0
     assert risks[0].severity == "critical"
+
+
+def test_duplicate_official_warning_is_counted_once():
+    score, risks = apply_official_warning_risks(91, [
+        {"level": 2, "event": "Sturm", "start": 1, "end": 2, "region_id": "x"},
+        {"level": 2, "event": "Sturm", "start": 1, "end": 2, "region_id": "x"},
+    ])
+    assert score == 55
+    assert len([risk for risk in risks if risk.name == "official_warning"]) == 1

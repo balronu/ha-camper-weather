@@ -56,7 +56,7 @@ async def _card_data(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         "name": next((entry.title for entry in entries if entry.entry_id == entry_id), "Camper Weather"),
         "location": data.get("location"), "camping_score": data.get("camping_score"),
         "location_revision": data.get("location_revision", 0),
-        "current": {key: (getattr(current, key).isoformat() if key == "time" and getattr(current, key) else getattr(current, key)) for key in ("time", "temperature", "apparent_temperature", "precipitation", "wind", "gusts", "uv")} if current else None,
+        "current": {key: (getattr(current, key).isoformat() if key == "time" and getattr(current, key) else getattr(current, key)) for key in ("time", "temperature", "apparent_temperature", "precipitation", "wind", "gusts", "uv", "weather_code", "is_day")} if current else None,
         "risks": [risk.__dict__ for risk in data.get("risks", [])], "warnings": data.get("warnings", [])[:20],
         "forecast": data.get("forecast", [])[:168], "radar": data.get("radar", {}),
         "recommendations": data.get("recommendations", {}),

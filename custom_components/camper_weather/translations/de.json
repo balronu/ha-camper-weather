@@ -31,7 +31,7 @@
     "step": {
       "init": {
         "title": "Camper-Weather-Optionen",
-        "description": "Einstellungen und Warnschwellen.",
+        "description": "Anbieter, Tracker und technische Optionen.",
         "data": {
           "name": "Name",
           "provider": "Primärer Wetteranbieter",

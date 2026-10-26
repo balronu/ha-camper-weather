@@ -5,7 +5,7 @@ from custom_components.camper_weather.const import CARD_VERSION, RAINVIEWER_URL,
 
 def test_backend_and_card_versions_match():
     card = Path("custom_components/camper_weather/www/camper-weather-card.js").read_text()
-    assert VERSION == CARD_VERSION == "0.1.0-beta.5"
+    assert VERSION == CARD_VERSION == "0.1.0-beta.6"
     assert f'const VERSION = "{VERSION}"' in card
     assert "tile.openstreetmap.org" not in card
     assert "openfreemap.org/styles/liberty" in card

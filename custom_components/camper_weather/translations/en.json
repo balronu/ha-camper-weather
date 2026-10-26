@@ -31,7 +31,7 @@
     "step": {
       "init": {
         "title": "Camper Weather options",
-        "description": "Provider and warning thresholds.",
+        "description": "Provider, tracker and technical options.",
         "data": {
           "name": "Name",
           "provider": "Primary weather provider",

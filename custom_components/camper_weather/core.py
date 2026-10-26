@@ -127,12 +127,17 @@ def apply_official_warning_risks(score: int | None, warnings: list[dict[str, Any
         return None, []
     risks: list[Risk] = []
     result = score
+    seen: set[tuple[Any, ...]] = set()
     for warning in warnings:
+        warning_key = (warning.get("warning_id"), warning.get("identifier"), warning.get("event"), warning.get("start"), warning.get("end"), warning.get("region_id"), warning.get("regionName"), warning.get("level"))
+        if warning_key in seen:
+            continue
+        seen.add(warning_key)
         try:
             level = int(warning.get("level", 0))
         except (TypeError, ValueError):
             level = 0
-        event = str(warning.get("event") or warning.get("headline") or "Amtliche Wetterwarnung")
+        event = str(warning.get("summary") or warning.get("event") or warning.get("headline") or "Amtliche Wetterwarnung")
         if level >= 3:
             risks.append(Risk("official_warning", "critical", 100, f"Amtliche DWD-Warnung Stufe {level}: {event}"))
             result = 0

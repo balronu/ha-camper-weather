@@ -11,6 +11,41 @@ from .const import DWD_URL, DWD_WARNINGS_PREFIX, MET_URL, OPEN_METEO_URL, RAINVI
 from .core import Hour, normalize_open_meteo
 
 
+def _warning_identity(warning: dict[str, Any]) -> tuple[Any, ...]:
+    """Return a stable identity that keeps periods and warning areas distinct."""
+    identifier = next((warning.get(key) for key in ("warningId", "warning_id", "warnId", "identifier", "id") if warning.get(key) not in (None, "")), None)
+    area = (warning.get("region_id"), warning.get("regionName"), warning.get("region"), warning.get("area"))
+    period = (warning.get("start"), warning.get("end"), warning.get("altitudeStart"), warning.get("altitudeEnd"))
+    if identifier is not None:
+        return ("official", str(identifier), *area, *period)
+    return ("semantic", warning.get("event"), warning.get("headline"), *area, *period, warning.get("level"))
+
+
+def _warning_summary(warning: dict[str, Any]) -> str:
+    text = str(warning.get("headline") or warning.get("event") or "Amtliche Wetterwarnung").strip()
+    if len(text) <= 120:
+        return text
+    return f"{text[:117].rstrip()}…"
+
+
+def deduplicate_dwd_warnings(warnings: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Merge exact duplicate records while retaining distinct periods and areas."""
+    merged: dict[tuple[Any, ...], dict[str, Any]] = {}
+    for raw in warnings:
+        item = dict(raw)
+        key = _warning_identity(item)
+        if key in merged:
+            # Some DWD payloads split headline/description/instructions over records.
+            merged[key] = {**merged[key], **{field: value for field, value in item.items() if value not in (None, "")}}
+        else:
+            merged[key] = item
+    result = list(merged.values())
+    for item in result:
+        item["summary"] = _warning_summary(item)
+    result.sort(key=lambda item: (-int(item.get("level") or 0), str(item.get("start") or ""), str(item.get("regionName") or "")))
+    return result
+
+
 async def async_open_meteo(session: ClientSession, latitude: float, longitude: float) -> tuple[Hour, ...]:
     params = {
         "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "UTC",
@@ -66,8 +101,7 @@ def filter_dwd_warnings(
     retained with an explicit uncertainty marker for conservative scoring.
     """
     now_ms = datetime.now(UTC).timestamp() * 1000
-    result: list[dict[str, Any]] = []
-    seen: set[tuple[Any, ...]] = set()
+    result_by_identity: list[dict[str, Any]] = []
     for warning in warnings:
         try:
             if warning.get("start") and float(warning["start"]) > now_ms:
@@ -102,11 +136,8 @@ def filter_dwd_warnings(
         else:
             region_name = str(warning.get("regionName") or "").casefold()
             item["location_uncertain"] = not bool(location_name and region_name and region_name in location_name.casefold())
-        key = (item.get("event"), item.get("start"), item.get("end"), item.get("regionName"), item.get("level"))
-        if key not in seen:
-            seen.add(key)
-            result.append(item)
-    return result
+        result_by_identity.append(item)
+    return deduplicate_dwd_warnings(result_by_identity)
 
 
 async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:

@@ -74,3 +74,19 @@ def test_tracker_override_wins_over_home_zone_and_marks_tracker_fallback():
     assert (latitude, longitude, source, stale) == (52.5, 13.4, "tracker", False)
     hass.states = States({"device_tracker.wohnmobil_zoe": State("unavailable")})
     assert coordinator._location()[2:] == ("tracker_stale", True)
+    assert coordinator._location_diagnostic["status"] == "stale"
+
+
+def test_tracker_without_coordinates_is_explicit_fallback_diagnostic():
+    hass = type("Hass", (), {})()
+    hass.config = type("Config", (), {"latitude": 50.0, "longitude": 8.0})()
+    hass.states = States({"device_tracker.wohnmobil_zoe": State("home")})
+    hass.data = {"camper_weather": {"entry": {"location": type("Runtime", (), {"current": {"mode": "tracker"}})()}}}
+    coordinator = object.__new__(CamperWeatherCoordinator)
+    coordinator.hass = hass
+    coordinator.entry = type("Entry", (), {"entry_id": "entry"})()
+    coordinator.options = {"location_mode": "tracker", "tracker": "device_tracker.wohnmobil_zoe"}
+    coordinator._last_valid_location = None
+    latitude, longitude, source, stale = coordinator._location()
+    assert (latitude, longitude, source, stale) == (50.0, 8.0, "tracker_fallback", True)
+    assert coordinator._location_diagnostic["status"] == "missing_coordinates"

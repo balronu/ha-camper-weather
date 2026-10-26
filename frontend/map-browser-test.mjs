@@ -15,7 +15,9 @@ const server = createServer((req, res) => {
 
 await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
 const port = server.address().port;
-const browser = await (process.env.BROWSER === "webkit" ? webkit : chromium).launch({headless: true});
+const launchOptions = {headless: true};
+if (process.env.CHROMIUM_PATH) launchOptions.executablePath = process.env.CHROMIUM_PATH;
+const browser = await (process.env.BROWSER === "webkit" ? webkit : chromium).launch(launchOptions);
 try {
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/frontend/fixture.html`);
