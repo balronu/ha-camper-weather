@@ -34,8 +34,15 @@ jobs:
       - uses: actions/setup-node@v4
         with: {node-version: '20'}
       - run: npm install --no-save --prefix frontend playwright@1.51.1
-      - run: npx --prefix frontend playwright install chromium
-      - run: node frontend/map-browser-test.mjs
+      - run: |
+          CHROMIUM_PATH="$(command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROMIUM_PATH" ]; then
+            sudo apt-get update
+            sudo apt-get install -y chromium
+            CHROMIUM_PATH="$(command -v chromium || command -v chromium-browser)"
+          fi
+          test -x "$CHROMIUM_PATH"
+          CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/map-browser-test.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:
