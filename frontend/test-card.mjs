@@ -2,11 +2,15 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../custom_components/camper_weather/www/camper-weather-card.js", import.meta.url), "utf8");
 const required = [
-  'const VERSION = "0.1.0-beta.3"',
+  'const VERSION = "0.1.0-beta.4"',
   "getStubConfig() { return {}; }",
   'type:"camper_weather/list_entries"',
   "openfreemap.org/styles/liberty",
   "maplibre-gl@5.6.2",
+  "ResizeObserver",
+  "camper_weather/location/geocode",
+  "data-location-mode",
+  "weather-glyph",
   "camper_weather/planner/save",
   "camper_weather/planner/delete",
   "data-forecast-range",

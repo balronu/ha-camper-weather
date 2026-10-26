@@ -4,11 +4,13 @@ from __future__ import annotations
 from typing import Any
 
 import voluptuous as vol
+from aiohttp import ClientError
 from homeassistant.components import websocket_api
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .const import ACTIVITIES, DOMAIN, VERSION
+from .const import ACTIVITIES, DOMAIN, GEOCODING_URL, VERSION
 from .planner import assess_plan
 
 WS_CARD_DATA = "camper_weather/card_data"
@@ -17,12 +19,17 @@ WS_PLANNER_LIST = "camper_weather/planner/list"
 WS_PLANNER_SAVE = "camper_weather/planner/save"
 WS_PLANNER_DELETE = "camper_weather/planner/delete"
 WS_PLANNER_ASSESS = "camper_weather/planner/assess"
+WS_LOCATION_GET = "camper_weather/location/get"
+WS_LOCATION_SET = "camper_weather/location/set"
+WS_LOCATION_GEOCODE = "camper_weather/location/geocode"
+WS_LOCATION_SAVE = "camper_weather/location/save_destination"
+WS_LOCATION_DELETE = "camper_weather/location/delete_destination"
 
 
 async def async_setup_websocket(hass: HomeAssistant) -> None:
     if hass.data.get(DOMAIN, {}).get("websocket_registered"):
         return
-    for handler in (_card_data, _list_entries, _planner_list, _planner_save, _planner_delete, _planner_assess):
+    for handler in (_card_data, _list_entries, _planner_list, _planner_save, _planner_delete, _planner_assess, _location_get, _location_set, _location_geocode, _location_save, _location_delete):
         websocket_api.async_register_command(hass, handler)
     hass.data.setdefault(DOMAIN, {})["websocket_registered"] = True
 
@@ -81,6 +88,93 @@ def _planner_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
     if not payload or "planner" not in payload:
         return None
     return payload["planner"], payload["coordinator"]
+
+
+def _location_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
+    payload = hass.data.get(DOMAIN, {}).get(entry_id)
+    if not payload or "location" not in payload:
+        return None
+    return payload["location"], payload["coordinator"]
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_LOCATION_GET, vol.Required("entry_id"): str})
+@websocket_api.async_response
+async def _location_get(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    result = _location_data(hass, msg["entry_id"])
+    if result is None:
+        connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
+        return
+    store, coordinator = result
+    connection.send_result(msg["id"], {**await store.async_payload(), "active": (coordinator.data or {}).get("location")})
+
+
+@websocket_api.websocket_command({
+    vol.Required("type"): WS_LOCATION_SET, vol.Required("entry_id"): str,
+    vol.Required("mode"): vol.In({"tracker", "home_zone", "manual", "destination"}),
+    vol.Optional("name"): str, vol.Optional("destination_id"): str,
+    vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float),
+})
+@websocket_api.async_response
+async def _location_set(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    result = _location_data(hass, msg["entry_id"])
+    if result is None:
+        connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
+        return
+    store, coordinator = result
+    current = {key: value for key, value in msg.items() if key in {"mode", "name", "destination_id", "latitude", "longitude"}}
+    if current["mode"] in {"manual", "destination"} and not coordinator._valid_coordinates(current.get("latitude"), current.get("longitude")):
+        connection.send_error(msg["id"], "invalid_location", "Für diesen Standortmodus sind gültige Koordinaten erforderlich")
+        return
+    saved = await store.async_set_current(current)
+    hass.async_create_task(coordinator.async_request_refresh())
+    connection.send_result(msg["id"], saved)
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_LOCATION_GEOCODE, vol.Required("entry_id"): str, vol.Required("query"): str})
+@websocket_api.async_response
+async def _location_geocode(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    if _location_data(hass, msg["entry_id"]) is None:
+        connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
+        return
+    query = msg["query"].strip()
+    if len(query) < 2 or len(query) > 120:
+        connection.send_error(msg["id"], "invalid_query", "Bitte einen Ortsnamen eingeben")
+        return
+    session = async_get_clientsession(hass)
+    headers = {"User-Agent": "CamperWeather/0.1 (+https://www.smartcamper765.de)"}
+    try:
+        async with session.get(GEOCODING_URL, params={"q": query, "format": "jsonv2", "limit": 5, "accept-language": "de"}, headers=headers, timeout=8) as response:
+            response.raise_for_status()
+            payload = await response.json()
+        results = [{"name": item.get("display_name", query), "latitude": float(item["lat"]), "longitude": float(item["lon"])} for item in payload if item.get("lat") and item.get("lon")]
+    except (ClientError, OSError, TimeoutError, ValueError) as err:
+        connection.send_error(msg["id"], "geocode_failed", f"Ortssuche nicht verfügbar ({type(err).__name__})")
+        return
+    connection.send_result(msg["id"], results)
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_LOCATION_SAVE, vol.Required("entry_id"): str, vol.Required("name"): str, vol.Required("latitude"): vol.Coerce(float), vol.Required("longitude"): vol.Coerce(float), vol.Optional("id"): str})
+@websocket_api.async_response
+async def _location_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    result = _location_data(hass, msg["entry_id"])
+    if result is None:
+        connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
+        return
+    store, coordinator = result
+    if not coordinator._valid_coordinates(msg["latitude"], msg["longitude"]):
+        connection.send_error(msg["id"], "invalid_location", "Ungültige Koordinaten")
+        return
+    connection.send_result(msg["id"], await store.async_save_destination({key: msg[key] for key in ("id", "name", "latitude", "longitude") if key in msg}))
+
+
+@websocket_api.websocket_command({vol.Required("type"): WS_LOCATION_DELETE, vol.Required("entry_id"): str, vol.Required("destination_id"): str})
+@websocket_api.async_response
+async def _location_delete(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
+    result = _location_data(hass, msg["entry_id"])
+    if result is None:
+        connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
+        return
+    connection.send_result(msg["id"], {"deleted": await result[0].async_delete_destination(msg["destination_id"])})
 
 
 @websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_LIST, vol.Required("entry_id"): str})

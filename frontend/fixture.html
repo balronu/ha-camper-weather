@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Camper Weather browser fixture</title>
+<camper-weather-card></camper-weather-card>
+<script src="/custom_components/camper_weather/www/camper-weather-card.js"></script>
+<script type="module">
+  const card = document.querySelector("camper-weather-card");
+  card.setConfig({default_view: 5});
+  card.hass = {connection: {}, callWS: async (msg) => {
+    if (msg.type === "camper_weather/location/get") return {current: {mode:"tracker"}, active: {latitude: 52.52, longitude: 13.405, source:"tracker"}, destinations: []};
+    if (msg.type === "camper_weather/list_entries") return [];
+    return {entry_id:"fixture", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{latitude:52.52,longitude:13.405,source:"tracker"}, forecast:[], radar:{frames:[]}, recommendations:{}, risks:[],warnings:[],provider_status:{},sources:[],errors:[],updated_at:new Date().toISOString()};
+  }};
+  await new Promise((resolve) => customElements.whenDefined("camper-weather-card").then(resolve));
+  card._data = {entry_id:"fixture", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{latitude:52.52,longitude:13.405,source:"tracker"}, forecast:[], radar:{frames:[]}, recommendations:{}, risks:[],warnings:[],provider_status:{},sources:[],errors:[],updated_at:new Date().toISOString()};
+  card._tabIndex = 5;
+  card._ensureShell();
+</script>
