@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 
@@ -106,6 +106,35 @@ def activity_score(hours: list[Hour], activity: str) -> tuple[int | None, list[R
     return max(0, min(100, round(sum(values) / len(values)))), risks
 
 
+def assess_activity_window(hours: list[Hour], activity: str, start: datetime, duration_minutes: int) -> tuple[int | None, list[Risk]]:
+    """Assess every forecast hour covered by a planned activity.
+
+    A missing edge hour is unknown instead of silently producing an optimistic score.
+    """
+    if duration_minutes <= 0:
+        return None, [Risk("data", "unknown", 0, "Die Dauer muss größer als null sein")]
+    end = start + timedelta(minutes=duration_minutes)
+    selected = [hour for hour in hours if start <= hour.time < end]
+    required = max(1, (duration_minutes + 59) // 60)
+    if len(selected) < required:
+        return None, [Risk("data", "unknown", 0, "Für den gesamten geplanten Zeitraum fehlen Prognosedaten")]
+    return activity_score(selected, activity)
+
+
+def suggest_activity_windows(hours: list[Hour], activity: str, duration_minutes: int = 120, limit: int = 3) -> list[dict[str, Any]]:
+    """Return the best known future windows without hiding dangerous conditions."""
+    if duration_minutes <= 0:
+        return []
+    candidates: list[dict[str, Any]] = []
+    for hour in hours:
+        score, risks = assess_activity_window(hours, activity, hour.time, duration_minutes)
+        if score is None or any(r.severity == "critical" for r in risks):
+            continue
+        candidates.append({"start": hour.time.isoformat(), "duration_minutes": duration_minutes, "score": score, "risks": [risk.__dict__ for risk in risks]})
+    candidates.sort(key=lambda item: item["score"], reverse=True)
+    return candidates[:limit]
+
+
 def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:
     hourly = payload.get("hourly") or {}
     times = hourly.get("time") or []
@@ -118,6 +147,8 @@ def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:
     for index, raw_time in enumerate(times):
         try:
             timestamp = datetime.fromisoformat(str(raw_time))
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=UTC)
         except ValueError:
             continue
         values = tuple(
