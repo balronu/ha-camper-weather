@@ -4,7 +4,9 @@ from custom_components.camper_weather.core import Hour, activity_score, camping_
 
 
 def hour(**kwargs):
-    return Hour(datetime(2026, 10, 26, 10, tzinfo=UTC), temperature=20, wind=10, **kwargs)
+    values = {"temperature": 20, "wind": 10}
+    values.update(kwargs)
+    return Hour(datetime(2026, 10, 26, 10, tzinfo=UTC), **values)
 
 
 def test_missing_data_is_unknown_not_good():
@@ -34,4 +36,3 @@ def test_open_meteo_normalization():
 
 def test_warning_thresholds():
     assert any(r.name == "frost" for r in risks_for_hour(hour(temperature=1)))
-
