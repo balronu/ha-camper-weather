@@ -1,0 +1,9 @@
+name: Fehlerbericht
+description: Ein Problem mit Camper Weather melden
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Beschreibe das beobachtete Verhalten ohne API-Schlüssel.
+    validations: {required: true}

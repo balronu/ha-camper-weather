@@ -1,0 +1,8 @@
+[tool.ruff]
+target-version = "py314"
+line-length = 140
+exclude = [".venv", "custom_components/camper_weather/www"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
