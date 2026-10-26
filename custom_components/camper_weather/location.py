@@ -15,10 +15,11 @@ from homeassistant.helpers.storage import Store
 class LocationStore:
     """Store one active override and a small user-managed destination list."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
+    def __init__(self, hass: HomeAssistant, entry_id: str, default_mode: str = "config") -> None:
         self._store = Store[dict[str, Any]](hass, 1, f"camper_weather.location.{entry_id}")
-        self.current: dict[str, Any] = {"mode": "tracker"}
+        self.current: dict[str, Any] = {"mode": default_mode}
         self.destinations: dict[str, dict[str, Any]] = {}
+        self.revision = 0
         self._loaded = False
 
     async def async_load(self) -> None:
@@ -28,17 +29,19 @@ class LocationStore:
         current = payload.get("current")
         if isinstance(current, dict):
             self.current = {**self.current, **current}
+        self.revision = int(payload.get("revision", 0))
         for key, value in (payload.get("destinations") or {}).items():
             if isinstance(value, dict):
                 self.destinations[str(key)] = {**value, "id": str(value.get("id", key))}
         self._loaded = True
 
     async def _save(self) -> None:
-        await self._store.async_save({"current": self.current, "destinations": self.destinations})
+        await self._store.async_save({"current": self.current, "destinations": self.destinations, "revision": self.revision})
 
     async def async_set_current(self, value: dict[str, Any]) -> dict[str, Any]:
         await self.async_load()
         self.current = dict(value)
+        self.revision += 1
         await self._save()
         return self.current
 
@@ -58,4 +61,4 @@ class LocationStore:
 
     async def async_payload(self) -> dict[str, Any]:
         await self.async_load()
-        return {"current": self.current, "destinations": list(self.destinations.values())}
+        return {"current": self.current, "destinations": list(self.destinations.values()), "revision": self.revision}

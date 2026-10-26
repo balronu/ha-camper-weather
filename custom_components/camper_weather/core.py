@@ -19,6 +19,8 @@ class Hour:
     snowfall: float | None = None
     weather_code: int | None = None
     thunderstorm_probability: float | None = None
+    is_day: bool | None = None
+    elevation: float | None = None
 
 
 @dataclass(frozen=True)
@@ -30,17 +32,17 @@ class Risk:
     at: datetime | None = None
 
 
-ACTIVITY_PROFILES: dict[str, dict[str, float]] = {
-    "walking": {"min_temp": 5, "max_temp": 28, "max_wind": 35, "max_rain": 1.5},
-    "hiking": {"min_temp": 8, "max_temp": 25, "max_wind": 30, "max_rain": 0.8},
-    "cycling": {"min_temp": 10, "max_temp": 28, "max_wind": 25, "max_rain": 0.5},
-    "ebike": {"min_temp": 8, "max_temp": 30, "max_wind": 30, "max_rain": 0.8},
-    "jogging": {"min_temp": 8, "max_temp": 24, "max_wind": 25, "max_rain": 0.5},
-    "skiing": {"min_temp": -12, "max_temp": 5, "max_wind": 45, "max_rain": 2},
-    "swimming": {"min_temp": 20, "max_temp": 34, "max_wind": 20, "max_rain": 0.2},
-    "barbecue": {"min_temp": 16, "max_temp": 30, "max_wind": 25, "max_rain": 0.2},
-    "fishing": {"min_temp": 8, "max_temp": 28, "max_wind": 25, "max_rain": 0.8},
-    "outdoor": {"min_temp": 8, "max_temp": 30, "max_wind": 30, "max_rain": 1.0},
+ACTIVITY_PROFILES: dict[str, dict[str, float | bool]] = {
+    "walking": {"min_temp": 5, "max_temp": 28, "max_wind": 35, "max_rain": 1.5, "daylight": True},
+    "hiking": {"min_temp": 8, "max_temp": 25, "max_wind": 30, "max_rain": 0.8, "daylight": True},
+    "cycling": {"min_temp": 10, "max_temp": 28, "max_wind": 25, "max_rain": 0.5, "daylight": True},
+    "ebike": {"min_temp": 8, "max_temp": 30, "max_wind": 30, "max_rain": 0.8, "daylight": True},
+    "jogging": {"min_temp": 8, "max_temp": 24, "max_wind": 25, "max_rain": 0.5, "daylight": True},
+    "skiing": {"min_temp": -12, "max_temp": 5, "max_wind": 45, "max_rain": 2, "daylight": True},
+    "swimming": {"min_temp": 20, "max_temp": 34, "max_wind": 20, "max_rain": 0.2, "daylight": True, "water_data": False},
+    "barbecue": {"min_temp": 16, "max_temp": 30, "max_wind": 25, "max_rain": 0.2, "daylight": True},
+    "fishing": {"min_temp": 8, "max_temp": 28, "max_wind": 25, "max_rain": 0.8, "daylight": True},
+    "outdoor": {"min_temp": 8, "max_temp": 30, "max_wind": 30, "max_rain": 1.0, "daylight": True},
 }
 
 
@@ -99,11 +101,50 @@ def activity_score(hours: list[Hour], activity: str) -> tuple[int | None, list[R
             score -= min(40, int(hour.wind - profile["max_wind"]))
         if hour.precipitation and hour.precipitation > profile["max_rain"]:
             score -= 30
+        if profile.get("daylight") and hour.is_day is False:
+            score -= 50
+            risks.append(Risk("daylight", "warning", 50, "Dieses Zeitfenster liegt ganz oder teilweise im Dunkeln", hour.time))
+        elif profile.get("daylight") and hour.is_day is None:
+            score -= 15
+            risks.append(Risk("daylight_data", "unknown", 15, "Tageslichtdaten fehlen; Bewertung ist unsicher", hour.time))
         values.append(max(0, score))
         risks.extend(risks_for_hour(hour))
     if any(r.severity == "critical" for r in risks):
         return 0, risks
-    return max(0, min(100, round(sum(values) / len(values)))), risks
+    result = max(0, min(100, round(sum(values) / len(values))))
+    if activity == "swimming":
+        risks.append(Risk("water_data", "unknown", 0, "Keine Wassertemperatur-, Wasserqualitäts- oder Gewässerdaten; nur Wettertauglichkeit bewertet"))
+        result = min(result, 50)
+    if activity == "skiing":
+        risks.append(Risk("winter_data", "unknown", 0, "Keine Schneehöhen- oder Lawinendaten; keine vollständige Skitauglichkeit bestätigt"))
+        result = min(result, 45)
+    return result, risks
+
+
+def apply_official_warning_risks(score: int | None, warnings: list[dict[str, Any]]) -> tuple[int | None, list[Risk]]:
+    """Fold active official warnings into the camping score conservatively."""
+    if score is None:
+        return None, []
+    risks: list[Risk] = []
+    result = score
+    for warning in warnings:
+        try:
+            level = int(warning.get("level", 0))
+        except (TypeError, ValueError):
+            level = 0
+        event = str(warning.get("event") or warning.get("headline") or "Amtliche Wetterwarnung")
+        if level >= 3:
+            risks.append(Risk("official_warning", "critical", 100, f"Amtliche DWD-Warnung Stufe {level}: {event}"))
+            result = 0
+        elif level >= 2:
+            risks.append(Risk("official_warning", "warning", 45, f"Amtliche DWD-Warnung Stufe {level}: {event}"))
+            result = min(result, 55)
+        elif level >= 1:
+            risks.append(Risk("official_warning", "warning", 20, f"Amtliche DWD-Warnung Stufe {level}: {event}"))
+            result = min(result, 80)
+        if warning.get("altitude_uncertain") or warning.get("location_uncertain"):
+            risks.append(Risk("warning_scope", "unknown", 0, "Genaue geografische oder höhenbezogene Gültigkeit der DWD-Warnung ist unbekannt"))
+    return result, risks
 
 
 def assess_activity_window(hours: list[Hour], activity: str, start: datetime, duration_minutes: int) -> tuple[int | None, list[Risk]]:
@@ -121,12 +162,15 @@ def assess_activity_window(hours: list[Hour], activity: str, start: datetime, du
     return activity_score(selected, activity)
 
 
-def suggest_activity_windows(hours: list[Hour], activity: str, duration_minutes: int = 120, limit: int = 3) -> list[dict[str, Any]]:
+def suggest_activity_windows(hours: list[Hour], activity: str, duration_minutes: int = 120, limit: int = 3, reference_time: datetime | None = None) -> list[dict[str, Any]]:
     """Return the best known future windows without hiding dangerous conditions."""
     if duration_minutes <= 0:
         return []
+    reference_time = reference_time or datetime.now(UTC)
     candidates: list[dict[str, Any]] = []
     for hour in hours:
+        if hour.time < reference_time:
+            continue
         score, risks = assess_activity_window(hours, activity, hour.time, duration_minutes)
         if score is None or any(r.severity == "critical" for r in risks):
             continue
@@ -141,7 +185,7 @@ def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:
     fields = {key: hourly.get(key) or [] for key in (
         "temperature_2m", "apparent_temperature", "precipitation", "precipitation_probability",
         "wind_speed_10m", "wind_gusts_10m", "uv_index", "snowfall", "weather_code",
-        "thunderstorm_probability",
+        "thunderstorm_probability", "is_day",
     )}
     result: list[Hour] = []
     for index, raw_time in enumerate(times):
@@ -151,9 +195,10 @@ def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:
                 timestamp = timestamp.replace(tzinfo=UTC)
         except ValueError:
             continue
-        values = tuple(
+        values = [
             field_values[index] if index < len(field_values) else None
             for field_values in fields.values()
-        )
-        result.append(Hour(timestamp, *values))
+        ]
+        values[-1] = bool(values[-1]) if values[-1] is not None else None
+        result.append(Hour(timestamp, *values, elevation=payload.get("elevation")))
     return tuple(result)
