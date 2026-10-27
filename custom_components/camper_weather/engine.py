@@ -12,7 +12,7 @@ from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from .core import Hour, Risk, assess_activity_window, camping_score, risks_for_hour
+from .core import Hour, Risk, apply_official_warning_risks, assess_activity_window, camping_score, risks_for_hour
 
 
 @dataclass(frozen=True)
@@ -143,7 +143,13 @@ def safety_assessment(current: Hour | None, warnings: Iterable[dict[str, Any]], 
     risks = risks_for_hour(current)
     reasons = [_risk_reason(risk) for risk in risks]
     highest_warning = 0
+    uncertain_warning = False
     for warning in warnings:
+        relevance = warning.get("location_relevance")
+        if relevance not in (None, "confirmed"):
+            uncertain_warning = True
+            reasons.append(str(warning.get("location_relevance_reason") or "Die lokale Warnungszuordnung ist nicht vollständig verifizierbar."))
+            continue
         try:
             highest_warning = max(highest_warning, int(warning.get("level", 0)))
         except (TypeError, ValueError):
@@ -152,11 +158,13 @@ def safety_assessment(current: Hour | None, warnings: Iterable[dict[str, Any]], 
             reasons.append("Die räumliche oder höhenbezogene Gültigkeit einer amtlichen Warnung ist teilweise unklar.")
         reasons.append(str(warning.get("summary") or warning.get("event") or "Amtliche Wetterwarnung"))
     critical = any(risk.severity == "critical" for risk in risks) or highest_warning >= 3
-    elevated = highest_warning >= 2 or any(risk.severity == "warning" for risk in risks)
+    elevated = highest_warning >= 2 or any(risk.severity == "warning" for risk in risks) or uncertain_warning
     if critical:
         status, level = "red", 3
     elif elevated:
         status, level = ("orange", 2) if highest_warning >= 2 or any(risk.name in {"heavy_rain", "frost"} for risk in risks) else ("yellow", 1)
+    elif uncertain_warning:
+        status, level = "yellow", 1
     else:
         status, level = "green", 0
     return SafetyAssessment(status, level, tuple(dict.fromkeys(reasons)), reasons[0] if reasons else None)
@@ -214,6 +222,9 @@ def evaluate_window(hours: Iterable[Hour], warnings: Iterable[dict[str, Any]], a
     rows = list(hours)
     warning_rows = list(warnings)
     score, risks = assess_activity_window(rows, activity, start, duration_minutes)
+    if score is not None:
+        score, official_risks = apply_official_warning_risks(score, warning_rows)
+        risks = [*risks, *official_risks]
     selected = [hour for hour in rows if start <= hour.time < end]
     current = selected[0] if selected else None
     safety = safety_assessment(current, warning_rows, data_quality=quality)

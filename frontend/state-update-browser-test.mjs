@@ -29,5 +29,9 @@ try {
   await page.waitForTimeout(700);
   if (await query.inputValue() !== "Saarbrücken") throw new Error("active input was replaced by a state update");
   if (await details.getAttribute("open") !== "") throw new Error("open details state was lost");
+  const mode = page.locator("[data-location-mode]");
+  await mode.selectOption("home_zone");
+  await page.waitForTimeout(250);
+  if (await mode.inputValue() !== "home_zone") throw new Error("real native select selection was not retained");
   console.log("State-update browser test passed: input and open details survive repeated HA updates");
 } finally { await browser.close(); server.close(); }

@@ -218,13 +218,13 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                     self._dwd_cache = (datetime.now(UTC), warnings)
                 sources.append("dwd")
                 warnings = filter_dwd_warnings(warnings, latitude=latitude, longitude=longitude, elevation=current.elevation, location_name=location_source)
-                dwd_status = "active_location_uncertain" if any(warning.get("location_uncertain") or warning.get("altitude_uncertain") for warning in warnings) else "active" if warnings else "no_warnings"
-                provider_status["dwd"] = {"enabled": True, "status": dwd_status, "last_success": datetime.now(UTC).isoformat(), "warning_count": len(warnings)}
+                dwd_status = "active_location_uncertain" if any(warning.get("location_relevance") != "confirmed" or warning.get("altitude_uncertain") for warning in warnings) else "active" if warnings else "no_warnings"
+                provider_status["dwd"] = {"enabled": True, "status": "ok", "technical_status": "ok", "warning_status": dwd_status, "last_success": datetime.now(UTC).isoformat(), "warning_count": len(warnings)}
             except (ClientError, TimeoutError, ValueError) as err:
                 LOGGER.debug("DWD warnings unavailable: %s", type(err).__name__)
                 errors.append("dwd_failed")
                 dwd_status = "unavailable"
-                provider_status["dwd"] = {"enabled": True, "status": "unavailable", "error": type(err).__name__}
+                provider_status["dwd"] = {"enabled": True, "status": "unavailable", "technical_status": "unavailable", "warning_status": "unknown", "error": type(err).__name__}
         warning_score, official_risks = apply_official_warning_risks(score, warnings)
         if official_risks:
             score = warning_score
@@ -238,14 +238,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         warning_events = self.warning_state.update(warnings, available=dwd_status not in {"unavailable", "disabled", "outside_supported_area"}, now=now)
         for event in warning_events:
             self.hass.bus.async_fire(f"camper_weather_warning_{event.phase}", {"entry_id": self.entry.entry_id, "location_mode": location_mode, "location_reference": location_source, "warning_id": event.identity.key(), "warning_type": event.event, "severity": event.level, "source": event.source, "data_quality": event.quality, "observed_at": event.observed_at.isoformat()})
-        recommendations = {activity: suggest_activity_windows(list(hours), activity, reference_time=now) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")}
-        if any(risk.severity == "critical" for risk in official_risks):
-            recommendations = {activity: [] for activity in recommendations}
-        elif official_risks:
-            for items in recommendations.values():
-                for item in items:
-                    item["score"] = min(item["score"], score if score is not None else 0)
-                    item["risks"] = [*item["risks"], *[risk.__dict__ for risk in official_risks]]
+        recommendations = {activity: suggest_activity_windows(list(hours), activity, reference_time=now, warnings=warnings) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")}
         if self.options.get(CONF_RADAR_ENABLED, True):
             try:
                 cached_radar = getattr(self, "_radar_cache", None)
