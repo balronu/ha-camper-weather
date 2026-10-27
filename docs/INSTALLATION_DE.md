@@ -10,7 +10,7 @@
 
 1. HACS öffnen und **Integrationen** wählen.
 2. `Camper Weather` suchen.
-3. Die stabile Version `v0.1.2` installieren.
+3. Die stabile Version `v0.1.3` installieren.
 4. Home Assistant die Integration laden lassen.
 5. Unter **Einstellungen → Geräte & Dienste → Hinzufügen** `Camper Weather` auswählen.
 

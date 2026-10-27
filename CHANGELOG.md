@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.1.3] – 2026-10-27
+
+### Deutsch
+
+- Der eingeklappte Kartenkopf verwendet jetzt ein responsives CSS-Grid: vollständiger Titel und Sicherheitsindikator oben, Aufklapppfeil dauerhaft sichtbar, Untertitel und dynamische Wetterwerte darunter.
+- Temperatur, Wind und Camping-Score dürfen auf schmalen Breiten umbrechen, ohne den Titel abzuschneiden oder den Pfeil zu überlagern.
+- Desktop-, Tablet- und mobile Chromium-Regressionen prüfen Titel, Pfeil, Umbruch, Überlappungsfreiheit, wiederholte HA-State-Updates und erhaltenen Aufklappzustand.
+
+### English
+
+- The collapsed card header now uses a responsive CSS grid: the full title and safety indicator stay on top, the toggle remains visible, and the subtitle and dynamic weather values use the lower rows.
+- Temperature, wind and camping score may wrap at narrow widths without truncating the title or overlapping the toggle.
+- Desktop, tablet and mobile Chromium regressions verify the full title, visible toggle, wrapping, no overlap, repeated HA state updates and preserved expanded state.
+
+WebKit/iPhone acceptance remains a manual follow-up because the required host libraries are unavailable. No productive Home Assistant installation or dashboard outside this card was changed.
+
 ## [0.1.2] – 2026-10-27
 
 ### Deutsch

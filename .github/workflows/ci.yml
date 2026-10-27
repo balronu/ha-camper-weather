@@ -46,6 +46,7 @@ jobs:
           CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/location-browser-test.mjs
           CHROMIUM_PATH="$CHROMIUM_PATH" DESKTOP=1 node frontend/location-browser-test.mjs
           CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/state-update-browser-test.mjs
+          CHROMIUM_PATH="$CHROMIUM_PATH" node frontend/collapsible-browser-test.mjs
   hassfest:
     runs-on: ubuntu-latest
     steps:
