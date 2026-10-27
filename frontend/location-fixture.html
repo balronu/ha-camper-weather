@@ -5,6 +5,7 @@
   const card = document.querySelector("camper-weather-card");
   let mode = "tracker";
   const destinations = [{id:"trip", name:"Bergen", latitude:60.39, longitude:5.32}];
+  let plans = [];
   window.__calls = [];
   const data = () => ({entry_id:"fixture", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{mode, latitude:mode === "home_zone" ? 50.1 : mode === "manual" ? 48.1 : 52.5, longitude:mode === "home_zone" ? 8.6 : mode === "manual" ? 11.6 : 13.4, source:mode, diagnostic:{status:"valid"}}, forecast:[], radar:{frames:[]}, recommendations:{}, risks:[], warnings:[], provider_status:{}, sources:[], errors:[], updated_at:new Date().toISOString(), location_revision:1});
   card.setConfig({entry_id:"fixture", default_view:0});
@@ -13,6 +14,10 @@
     if (msg.type === "camper_weather/card_data") return data();
     if (msg.type === "camper_weather/location/get") return {current:{mode}, active:data().location, destinations, revision:1};
     if (msg.type === "camper_weather/location/set") { const requested = msg.mode; mode = requested; await new Promise((resolve) => setTimeout(resolve, requested === "home_zone" ? 10 : 80)); return {current:{mode:requested}, active:data().location, destinations, revision:1}; }
+    if (msg.type === "camper_weather/location/geocode") return [{name:"Trier, Rheinland-Pfalz, Deutschland", latitude:49.75, longitude:6.64}];
+    if (msg.type === "camper_weather/planner/list") return plans;
+    if (msg.type === "camper_weather/planner/assess") { window.__lastPlanAssessment = {...msg}; return {score:88, safety_status:"green", risks:[], data_quality:{status:"good"}}; }
+    if (msg.type === "camper_weather/planner/save") { const saved = {...msg, id:msg.id || "plan-1", assessment:{score:88, safety_status:"green", risks:[]}}; plans = [saved]; window.__lastPlanSave = saved; return saved; }
     return [];
   }};
 </script>

@@ -1,6 +1,7 @@
-"""Authenticated read-only websocket API for the Lovelace card."""
+"""Authenticated websocket API for the Lovelace card."""
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -11,9 +12,10 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
-from .const import ACTIVITIES, DOMAIN, GEOCODING_URL, VERSION
+from .const import ACTIVITIES, CONF_MET_ENABLED, CONF_PROVIDER, DOMAIN, GEOCODING_URL, PROVIDER_MET_NORWAY, PROVIDER_OPEN_METEO, VERSION
 from .engine import DataQuality, LocationContext
 from .planner import assess_plan
+from .providers import async_dwd_warnings, async_met_norway, async_open_meteo, filter_dwd_warnings
 
 WS_CARD_DATA = "camper_weather/card_data"
 WS_LIST_ENTRIES = "camper_weather/list_entries"
@@ -100,10 +102,45 @@ def _planner_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
 def _assess_plan_for_coordinator(coordinator: Any, item: dict[str, Any]) -> dict[str, Any]:
     data = coordinator.data or {}
     location_data = data.get("location") or {}
-    location = LocationContext(location_data.get("mode", "current"), location_data.get("source"), location_data.get("source"), location_data.get("latitude"), location_data.get("longitude"), "UTC", getattr(data.get("current"), "elevation", None), bool(location_data.get("stale")))
+    if item.get("location_mode") == "manual" and coordinator._valid_coordinates(item.get("latitude"), item.get("longitude")):
+        location_data = {"mode": "manual", "source": "planner_target", "name": item.get("location_name"), "latitude": item["latitude"], "longitude": item["longitude"], "stale": False}
+    location = LocationContext(location_data.get("mode", "current"), location_data.get("source"), location_data.get("name") or location_data.get("source"), location_data.get("latitude"), location_data.get("longitude"), "UTC", getattr(data.get("current"), "elevation", None), bool(location_data.get("stale")))
     quality_data = data.get("data_quality") or {}
     quality = DataQuality(quality_data.get("status", "unknown"), quality_data.get("reason", "Datenqualität unbekannt"), data.get("updated_at"), quality_data.get("age_seconds"), bool(quality_data.get("forecast_complete", True)), tuple(quality_data.get("sources", [])))
     return assess_plan(item, list(data.get("hours", ())), list(data.get("warnings", ())), location=location, quality=quality)
+
+
+async def _async_assess_plan_for_coordinator(coordinator: Any, item: dict[str, Any]) -> dict[str, Any]:
+    """Assess a plan with the global snapshot or a forecast for its target."""
+    if item.get("location_mode") != "manual" or not coordinator._valid_coordinates(item.get("latitude"), item.get("longitude")):
+        return _assess_plan_for_coordinator(coordinator, item)
+    latitude, longitude = float(item["latitude"]), float(item["longitude"])
+    cache_key = (round(latitude, 4), round(longitude, 4), coordinator.options.get(CONF_PROVIDER, PROVIDER_OPEN_METEO))
+    cached = getattr(coordinator, "_planner_forecast_cache", {}).get(cache_key)
+    if cached and datetime.now(UTC) - cached[0] < timedelta(minutes=10):
+        _, hours, warnings = cached
+    else:
+        session = async_get_clientsession(coordinator.hass)
+        provider = coordinator.options.get(CONF_PROVIDER, PROVIDER_OPEN_METEO)
+        try:
+            hours = await (async_met_norway(session, latitude, longitude) if provider == PROVIDER_MET_NORWAY else async_open_meteo(session, latitude, longitude))
+        except (ClientError, OSError, TimeoutError, ValueError):
+            if provider != PROVIDER_OPEN_METEO or not coordinator.options.get(CONF_MET_ENABLED, True):
+                raise
+            hours = await async_met_norway(session, latitude, longitude)
+        warnings = []
+        if coordinator.options.get("dwd_enabled", True) and 47.0 <= latitude <= 55.2 and 5.5 <= longitude <= 15.5:
+            try:
+                raw_warnings = getattr(coordinator, "_dwd_cache", (None, []))[1] or await async_dwd_warnings(session)
+                warnings = filter_dwd_warnings(raw_warnings, latitude=latitude, longitude=longitude, location_name=item.get("location_name") or "planner_target")
+            except (ClientError, OSError, TimeoutError, ValueError):
+                warnings = []
+        coordinator._planner_forecast_cache = {**getattr(coordinator, "_planner_forecast_cache", {}), cache_key: (datetime.now(UTC), hours, warnings)}
+    data = coordinator.data or {}
+    location = LocationContext("manual", "planner_target", item.get("location_name"), latitude, longitude, "UTC", getattr(data.get("current"), "elevation", None), False)
+    quality_data = data.get("data_quality") or {}
+    quality = DataQuality(quality_data.get("status", "good"), quality_data.get("reason", "Planungsprognose für den ausgewählten Zielort."), data.get("updated_at"), quality_data.get("age_seconds"), True, tuple(quality_data.get("sources", [])))
+    return assess_plan(item, list(hours), list(warnings), location=location, quality=quality)
 
 
 def _location_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
@@ -214,7 +251,7 @@ async def _planner_list(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
         return
     store, coordinator = result
-    connection.send_result(msg["id"], [{**item, "assessment": _assess_plan_for_coordinator(coordinator, item)} for item in await store.async_items()])
+    connection.send_result(msg["id"], [{**item, "assessment": await _async_assess_plan_for_coordinator(coordinator, item)} for item in await store.async_items()])
 
 
 def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
@@ -230,10 +267,15 @@ def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
     # Parsing also rejects malformed user input; the stored value remains ISO text.
     from datetime import datetime
     datetime.fromisoformat(start_at)
-    return {"id": msg.get("id"), "activity": activity, "start_at": start_at, "duration_minutes": duration, "location_mode": msg.get("location_mode", "current"), "latitude": msg.get("latitude"), "longitude": msg.get("longitude"), "location_revision": msg.get("location_revision")}
+    location_mode = msg.get("location_mode", "current")
+    if location_mode not in {"current", "manual"}:
+        raise ValueError("Unbekannter Planungsstandort")
+    if location_mode == "manual" and not (-90 <= float(msg.get("latitude", 999)) <= 90 and -180 <= float(msg.get("longitude", 999)) <= 180 and not (float(msg.get("latitude", 999)) == 0 and float(msg.get("longitude", 999)) == 0)):
+        raise ValueError("Für den manuellen Zielort sind gültige Koordinaten erforderlich")
+    return {"id": msg.get("id"), "activity": activity, "start_at": start_at, "duration_minutes": duration, "location_mode": location_mode, "location_name": msg.get("location_name"), "latitude": msg.get("latitude"), "longitude": msg.get("longitude"), "location_revision": msg.get("location_revision")}
 
 
-@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_SAVE, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("id"): vol.Coerce(str), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
+@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_SAVE, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("id"): vol.Coerce(str), vol.Optional("location_mode"): str, vol.Optional("location_name"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
 @websocket_api.async_response
 async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     result = _planner_data(hass, msg["entry_id"])
@@ -251,7 +293,7 @@ async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "stale_location", "Der Standort hat sich geändert. Bitte die Aktivität neu bewerten.")
         return
     item = await store.async_save(item)
-    connection.send_result(msg["id"], {**item, "assessment": _assess_plan_for_coordinator(coordinator, item)})
+    connection.send_result(msg["id"], {**item, "assessment": await _async_assess_plan_for_coordinator(coordinator, item)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_DELETE, vol.Required("entry_id"): str, vol.Required("plan_id"): vol.Coerce(str)})
@@ -264,7 +306,7 @@ async def _planner_delete(hass: HomeAssistant, connection: websocket_api.ActiveC
     connection.send_result(msg["id"], {"deleted": await result[0].async_delete(msg["plan_id"])})
 
 
-@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_ASSESS, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("location_mode"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
+@websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_ASSESS, vol.Required("entry_id"): str, vol.Required("activity"): str, vol.Required("start_at"): str, vol.Required("duration_minutes"): vol.Coerce(int), vol.Optional("location_mode"): str, vol.Optional("location_name"): str, vol.Optional("latitude"): vol.Coerce(float), vol.Optional("longitude"): vol.Coerce(float), vol.Optional("location_revision"): vol.Coerce(int)})
 @websocket_api.async_response
 async def _planner_assess(hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict[str, Any]) -> None:
     result = _planner_data(hass, msg["entry_id"])
@@ -276,4 +318,4 @@ async def _planner_assess(hass: HomeAssistant, connection: websocket_api.ActiveC
     except (TypeError, ValueError) as err:
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
-    connection.send_result(msg["id"], _assess_plan_for_coordinator(result[1], item))
+    connection.send_result(msg["id"], await _async_assess_plan_for_coordinator(result[1], item))
