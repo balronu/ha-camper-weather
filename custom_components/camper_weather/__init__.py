@@ -9,9 +9,10 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.event import async_track_state_change_event
 
 from .api import async_setup_websocket
-from .const import CARD_PATH, CARD_VERSION, CONF_LOCATION_MODE, DOMAIN, PLATFORMS
+from .const import CARD_PATH, CARD_VERSION, CONF_LOCATION_MODE, CONF_TRACKER, DOMAIN, PLATFORMS
 from .coordinator import CamperWeatherCoordinator
 from .location import LocationStore
 from .planner import ActivityStore
@@ -44,6 +45,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await location.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator, "planner": planner, "location": location}
     await coordinator.async_load_warning_state()
+    tracker_id = coordinator.options.get(CONF_TRACKER)
+    if tracker_id:
+        async def _tracker_changed(_event: Any) -> None:
+            await coordinator.async_request_refresh()
+
+        entry.async_on_unload(async_track_state_change_event(hass, [tracker_id], _tracker_changed))
     await coordinator.async_config_entry_first_refresh()
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

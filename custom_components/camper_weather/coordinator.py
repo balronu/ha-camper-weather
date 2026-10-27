@@ -288,6 +288,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "safety_status": safety.status,
             "safety_level": safety.level,
             "safety_reasons": list(safety.reasons),
+            "next_risk": safety.next_risk,
             "data_quality": serialise(data_quality),
             "trends": serialise(trends),
             "summary": summary,

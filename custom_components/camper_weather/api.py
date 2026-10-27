@@ -62,7 +62,7 @@ async def _card_data(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         "risks": [risk.__dict__ for risk in data.get("risks", [])], "warnings": data.get("warnings", [])[:20],
         "comfort_score": data.get("comfort_score"), "comfort_label": data.get("comfort_label"),
         "safety_status": data.get("safety_status", "gray"), "safety_level": data.get("safety_level", 0),
-        "safety_reasons": data.get("safety_reasons", []), "data_quality": data.get("data_quality", {}),
+        "safety_reasons": data.get("safety_reasons", []), "next_risk": data.get("next_risk"), "data_quality": data.get("data_quality", {}),
         "trends": data.get("trends", []), "summary": data.get("summary"), "summary_en": data.get("summary_en"),
         "forecast": data.get("forecast", [])[:168], "radar": data.get("radar", {}),
         "recommendations": data.get("recommendations", {}),
@@ -97,7 +97,7 @@ def _planner_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
     return payload["planner"], payload["coordinator"]
 
 
-def _planner_assess(coordinator: Any, item: dict[str, Any]) -> dict[str, Any]:
+def _assess_plan_for_coordinator(coordinator: Any, item: dict[str, Any]) -> dict[str, Any]:
     data = coordinator.data or {}
     location_data = data.get("location") or {}
     location = LocationContext(location_data.get("mode", "current"), location_data.get("source"), location_data.get("source"), location_data.get("latitude"), location_data.get("longitude"), "UTC", getattr(data.get("current"), "elevation", None), bool(location_data.get("stale")))
@@ -214,7 +214,7 @@ async def _planner_list(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
         return
     store, coordinator = result
-    connection.send_result(msg["id"], [{**item, "assessment": _planner_assess(coordinator, item)} for item in await store.async_items()])
+    connection.send_result(msg["id"], [{**item, "assessment": _assess_plan_for_coordinator(coordinator, item)} for item in await store.async_items()])
 
 
 def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
@@ -251,7 +251,7 @@ async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "stale_location", "Der Standort hat sich geändert. Bitte die Aktivität neu bewerten.")
         return
     item = await store.async_save(item)
-    connection.send_result(msg["id"], {**item, "assessment": _planner_assess(coordinator, item)})
+    connection.send_result(msg["id"], {**item, "assessment": _assess_plan_for_coordinator(coordinator, item)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_DELETE, vol.Required("entry_id"): str, vol.Required("plan_id"): vol.Coerce(str)})
@@ -276,4 +276,4 @@ async def _planner_assess(hass: HomeAssistant, connection: websocket_api.ActiveC
     except (TypeError, ValueError) as err:
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
-    connection.send_result(msg["id"], _planner_assess(result[1], item))
+    connection.send_result(msg["id"], _assess_plan_for_coordinator(result[1], item))
