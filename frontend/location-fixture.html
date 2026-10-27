@@ -9,6 +9,7 @@
   window.__calls = [];
   const data = () => ({entry_id:"fixture", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{mode, latitude:mode === "home_zone" ? 50.1 : mode === "manual" ? 48.1 : 52.5, longitude:mode === "home_zone" ? 8.6 : mode === "manual" ? 11.6 : 13.4, source:mode, diagnostic:{status:"valid"}}, forecast:[], radar:{frames:[]}, recommendations:{}, risks:[], warnings:[], provider_status:{}, sources:[], errors:[], updated_at:new Date().toISOString(), location_revision:1});
   card.setConfig({entry_id:"fixture", default_view:0});
+  card._expanded = true;
   card.hass = {connection:{}, callWS: async (msg) => {
     window.__calls.push({...msg});
     if (msg.type === "camper_weather/card_data") return data();

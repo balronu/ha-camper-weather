@@ -4,6 +4,7 @@
 <script type="module">
   const card = document.querySelector("camper-weather-card");
   card.setConfig({default_view: 5});
+  card._expanded = true;
   card.hass = {connection: {}, callWS: async (msg) => {
     if (msg.type === "camper_weather/location/get") return {current: {mode:"tracker"}, active: {latitude: 52.52, longitude: 13.405, source:"tracker"}, destinations: []};
     if (msg.type === "camper_weather/list_entries") return [];

@@ -1,0 +1,14 @@
+<!doctype html><meta charset="utf-8"><title>Camper Weather collapsible fixture</title>
+<camper-weather-card></camper-weather-card>
+<script src="/custom_components/camper_weather/www/camper-weather-card.js"></script>
+<script>
+  const card = document.querySelector("camper-weather-card");
+  let snapshot = {entry_id:"fixture", name:"Wohnmobil", current:{temperature:9.9, wind:7}, camping_score:95, safety_status:"green", location:{latitude:49.2,longitude:7.0,source:"tracker"}, forecast:[], radar:{frames:[]}, recommendations:{}, risks:[], warnings:[], provider_status:{}, sources:[], errors:[], updated_at:new Date().toISOString()};
+  window.__setSnapshot = (next) => { snapshot = {...snapshot, ...next}; };
+  card.setConfig({entry_id:"fixture", default_view:0});
+  card.hass = {connection:{}, callWS: async (msg) => {
+    if (msg.type === "camper_weather/card_data") return snapshot;
+    if (msg.type === "camper_weather/location/get") return {current:{mode:"tracker"}, active:snapshot.location, destinations:[]};
+    return [];
+  }};
+</script>

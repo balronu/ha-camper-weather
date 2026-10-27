@@ -16,6 +16,7 @@
     score: 80,
   }));
   card.setConfig({default_view:1});
+  card._expanded = true;
   card._data = {entry_id:"fixture", name:"Testort", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{latitude:52.52,longitude:13.405,source:"tracker"}, forecast, radar:{frames:[]}, recommendations:{}, risks:[],warnings:[],provider_status:{},sources:["open_meteo"],errors:[],updated_at:new Date().toISOString()};
   card._hass = {connection:{}, callWS: async () => ({entry_id:"fixture", current:{mode:"tracker"}, active:{latitude:52.52,longitude:13.405,source:"tracker"}, destinations:[]})};
   card._ensureShell();
