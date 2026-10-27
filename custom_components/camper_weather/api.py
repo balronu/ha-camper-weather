@@ -12,6 +12,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 from .const import ACTIVITIES, DOMAIN, GEOCODING_URL, VERSION
+from .engine import DataQuality, LocationContext
 from .planner import assess_plan
 
 WS_CARD_DATA = "camper_weather/card_data"
@@ -59,6 +60,10 @@ async def _card_data(hass: HomeAssistant, connection: websocket_api.ActiveConnec
         "location_revision": data.get("location_revision", 0),
         "current": {key: (getattr(current, key).isoformat() if key == "time" and getattr(current, key) else getattr(current, key)) for key in ("time", "temperature", "apparent_temperature", "precipitation", "wind", "gusts", "uv", "weather_code", "is_day")} if current else None,
         "risks": [risk.__dict__ for risk in data.get("risks", [])], "warnings": data.get("warnings", [])[:20],
+        "comfort_score": data.get("comfort_score"), "comfort_label": data.get("comfort_label"),
+        "safety_status": data.get("safety_status", "gray"), "safety_level": data.get("safety_level", 0),
+        "safety_reasons": data.get("safety_reasons", []), "data_quality": data.get("data_quality", {}),
+        "trends": data.get("trends", []), "summary": data.get("summary"), "summary_en": data.get("summary_en"),
         "forecast": data.get("forecast", [])[:168], "radar": data.get("radar", {}),
         "recommendations": data.get("recommendations", {}),
         "provider_status": data.get("provider_status", {}),
@@ -90,6 +95,15 @@ def _planner_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
     if not payload or "planner" not in payload:
         return None
     return payload["planner"], payload["coordinator"]
+
+
+def _planner_assess(coordinator: Any, item: dict[str, Any]) -> dict[str, Any]:
+    data = coordinator.data or {}
+    location_data = data.get("location") or {}
+    location = LocationContext(location_data.get("mode", "current"), location_data.get("source"), location_data.get("source"), location_data.get("latitude"), location_data.get("longitude"), "UTC", getattr(data.get("current"), "elevation", None), bool(location_data.get("stale")))
+    quality_data = data.get("data_quality") or {}
+    quality = DataQuality(quality_data.get("status", "unknown"), quality_data.get("reason", "Datenqualität unbekannt"), data.get("updated_at"), quality_data.get("age_seconds"), bool(quality_data.get("forecast_complete", True)), tuple(quality_data.get("sources", [])))
+    return assess_plan(item, list(data.get("hours", ())), list(data.get("warnings", ())), location=location, quality=quality)
 
 
 def _location_data(hass: HomeAssistant, entry_id: str) -> tuple[Any, Any] | None:
@@ -200,8 +214,7 @@ async def _planner_list(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "not_found", "Camper-Weather-Eintrag nicht geladen")
         return
     store, coordinator = result
-    hours = list((coordinator.data or {}).get("hours", ()))
-    connection.send_result(msg["id"], [{**item, "assessment": assess_plan(item, hours)} for item in await store.async_items()])
+    connection.send_result(msg["id"], [{**item, "assessment": _planner_assess(coordinator, item)} for item in await store.async_items()])
 
 
 def _validate_plan(msg: dict[str, Any]) -> dict[str, Any]:
@@ -238,7 +251,7 @@ async def _planner_save(hass: HomeAssistant, connection: websocket_api.ActiveCon
         connection.send_error(msg["id"], "stale_location", "Der Standort hat sich geändert. Bitte die Aktivität neu bewerten.")
         return
     item = await store.async_save(item)
-    connection.send_result(msg["id"], {**item, "assessment": assess_plan(item, list((coordinator.data or {}).get("hours", ())))})
+    connection.send_result(msg["id"], {**item, "assessment": _planner_assess(coordinator, item)})
 
 
 @websocket_api.websocket_command({vol.Required("type"): WS_PLANNER_DELETE, vol.Required("entry_id"): str, vol.Required("plan_id"): vol.Coerce(str)})
@@ -263,4 +276,4 @@ async def _planner_assess(hass: HomeAssistant, connection: websocket_api.ActiveC
     except (TypeError, ValueError) as err:
         connection.send_error(msg["id"], "invalid_plan", str(err))
         return
-    connection.send_result(msg["id"], assess_plan(item, list((result[1].data or {}).get("hours", ()))))
+    connection.send_result(msg["id"], _planner_assess(result[1], item))

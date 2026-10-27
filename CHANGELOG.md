@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.1.0-beta.8] – 2026-10-27
+
+### Deutsch
+
+- GitHub-Default-Branch auf `main` korrigiert; HACS-Branchauswahl wird nicht mehr durch den alten Beta-Foundation-Commit bestimmt.
+- Gemeinsame Wetter-Engine mit Standortbindung, Datenqualität, getrenntem Sicherheitsstatus und Komfortscore ergänzt.
+- Sicherheitsstatus Grün/Gelb/Orange/Rot/Grau, nachvollziehbare Gründe, Wind-/Regen-/Temperaturtrends und zweisprachige Zusammenfassungen ergänzt.
+- Warnungszustände werden pro Config Entry persistent dedupliziert; Beginn, Änderung und Ende erzeugen nur bei echten Zustandsänderungen Events.
+- Neue Sensoren für Sicherheit, Komfort, Zusammenfassung, nächstes Risiko und Datenqualität sowie die Action `camper_weather.evaluate_window` ergänzt.
+- Bestehende Standortwahl, DWD-Marine-/Geometrieprüfung, Radar, Karte, Aktivitäten und gespeicherte Pläne bleiben erhalten.
+
+### English
+
+- Corrected the GitHub default branch to `main`; HACS no longer uses the old beta-foundation commit as the repository branch reference.
+- Added a shared weather engine with explicit location binding, data quality, separate safety status and comfort score.
+- Added Green/Yellow/Orange/Red/Gray safety states, explainable reasons, wind/rain/temperature trends and bilingual summaries.
+- Warning states are persisted and deduplicated per config entry; start, change and end events are emitted only for real state transitions.
+- Added safety, comfort, summary, next-risk and data-quality sensors plus the `camper_weather.evaluate_window` action.
+- Existing location selection, DWD marine/geometry checks, radar, map, activities and saved plans are preserved.
+
+**Limitations / Hinweise:** Kein Zugriff auf VM 104 und kein produktiver HA-/iPhone-Test. HACS muss auf VM 104 nach der Repository-Korrektur aktualisiert und lokal auf die Beta-Version eingestellt werden.
+
 ## [0.1.0-beta.7] – 2026-10-26
 
 ### Deutsch
