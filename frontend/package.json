@@ -1,6 +1,6 @@
 {
   "name": "camper-weather-card",
   "private": true,
-  "version": "0.1.0-beta.10",
+  "version": "0.1.0-beta.11",
   "scripts": {"build": "node build.mjs", "test": "node test-card.mjs", "test:browser": "node map-browser-test.mjs", "test:location": "node location-browser-test.mjs"}
 }

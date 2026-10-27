@@ -65,6 +65,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             update_interval=timedelta(minutes=int(self.options.get(CONF_REFRESH, DEFAULT_REFRESH))),
         )
         self._last_valid_location: tuple[float, float] | None = None
+        self._last_valid_location_mode: str | None = None
         self._last_query_location: tuple[float, float] | None = None
         self._location_diagnostic: dict[str, Any] = {"status": "unknown"}
         self._update_generation = 0
@@ -85,10 +86,11 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
                 if self._valid_coordinates(lat, lon):
                     self._last_valid_location = (float(lat), float(lon))
+                    self._last_valid_location_mode = LOCATION_TRACKER
                     self._location_diagnostic = {"status": "valid", "entity_id": tracker_id, "tracker_state": state.state, "updated_at": self._state_timestamp(state)}
                     return float(lat), float(lon), "tracker", False
             self._location_diagnostic = {"status": "unknown_tracker" if state is None else "unavailable_tracker" if state.state == "unavailable" else "missing_coordinates", "entity_id": tracker_id, "tracker_state": getattr(state, "state", None)}
-            if self._last_valid_location:
+            if self._last_valid_location and getattr(self, "_last_valid_location_mode", None) == LOCATION_TRACKER:
                 self._location_diagnostic["status"] = "stale"
                 return (*self._last_valid_location, "tracker_stale", True)
             return float(self.hass.config.latitude), float(self.hass.config.longitude), "tracker_fallback", True
@@ -97,12 +99,20 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
             if self._valid_coordinates(lat, lon):
                 self._last_valid_location = (float(lat), float(lon))
+                self._last_valid_location_mode = LOCATION_HOME_ZONE
                 self._location_diagnostic = {"status": "valid", "source": "home_zone"}
                 return float(lat), float(lon), "home_zone", False
         if runtime_mode in {LOCATION_MANUAL, LOCATION_DESTINATION} and self._valid_coordinates(override.get("latitude"), override.get("longitude")):
             self._last_valid_location = (float(override["latitude"]), float(override["longitude"]))
+            self._last_valid_location_mode = runtime_mode
             self._location_diagnostic = {"status": "valid", "source": runtime_mode}
             return float(override["latitude"]), float(override["longitude"]), override.get("name", runtime_mode), False
+        if runtime_mode in {LOCATION_HOME_ZONE, LOCATION_MANUAL, LOCATION_DESTINATION}:
+            if self._last_valid_location and getattr(self, "_last_valid_location_mode", None) == runtime_mode:
+                self._location_diagnostic = {"status": "stale", "source": runtime_mode}
+                return (*self._last_valid_location, f"{runtime_mode}_stale", True)
+            self._location_diagnostic = {"status": "fallback", "source": runtime_mode}
+            return float(self.hass.config.latitude), float(self.hass.config.longitude), f"{runtime_mode}_fallback", True
         mode = self.options.get(CONF_LOCATION_MODE, LOCATION_MANUAL)
         if mode == LOCATION_TRACKER:
             tracker_id = self.options.get(CONF_TRACKER, "")
@@ -111,6 +121,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 lat, lon = state.attributes.get("latitude"), state.attributes.get("longitude")
                 if self._valid_coordinates(lat, lon):
                     self._last_valid_location = (float(lat), float(lon))
+                    self._last_valid_location_mode = LOCATION_TRACKER
                     self._location_diagnostic = {"status": "valid", "entity_id": tracker_id, "tracker_state": state.state, "updated_at": self._state_timestamp(state)}
                     return float(lat), float(lon), "tracker", False
             self._location_diagnostic = {"status": "unknown_tracker" if state is None else "unavailable_tracker" if state.state == "unavailable" else "missing_coordinates", "entity_id": tracker_id, "tracker_state": getattr(state, "state", None)}
@@ -119,19 +130,22 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             lat, lon = (state.attributes.get("latitude"), state.attributes.get("longitude")) if state else (None, None)
             if self._valid_coordinates(lat, lon):
                 self._last_valid_location = (float(lat), float(lon))
+                self._last_valid_location_mode = LOCATION_HOME_ZONE
                 self._location_diagnostic = {"status": "valid", "source": "home_zone"}
                 return float(lat), float(lon), "home_zone", False
         lat = self.options.get(CONF_LATITUDE, self.hass.config.latitude)
         lon = self.options.get(CONF_LONGITUDE, self.hass.config.longitude)
         if mode == LOCATION_DESTINATION and self._valid_coordinates(lat, lon):
             self._last_valid_location = (float(lat), float(lon))
+            self._last_valid_location_mode = LOCATION_DESTINATION
             self._location_diagnostic = {"status": "valid", "source": "destination"}
             return float(lat), float(lon), self.options.get(CONF_DESTINATION_NAME, "destination"), False
         if mode == LOCATION_MANUAL and self._valid_coordinates(lat, lon):
             self._last_valid_location = (float(lat), float(lon))
+            self._last_valid_location_mode = LOCATION_MANUAL
             self._location_diagnostic = {"status": "valid", "source": "manual"}
             return float(lat), float(lon), "manual", False
-        if self._last_valid_location:
+        if self._last_valid_location and getattr(self, "_last_valid_location_mode", None) == mode:
             self._location_diagnostic = {"status": "stale", "source": mode}
             return (*self._last_valid_location, mode, True)
         self._location_diagnostic = {"status": "fallback", "source": mode}
@@ -202,6 +216,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         base_score, risks = camping_score(current, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))
         score = base_score
         warnings: list[dict[str, Any]] = []
+        warning_data_stale = False
         dwd_status = "disabled"
         radar: dict[str, Any] = {}
         dwd_in_area = 47.0 <= latitude <= 55.2 and 5.5 <= longitude <= 15.5
@@ -223,8 +238,10 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             except (ClientError, TimeoutError, ValueError) as err:
                 LOGGER.debug("DWD warnings unavailable: %s", type(err).__name__)
                 errors.append("dwd_failed")
+                warnings = [dict(item, warning_data_stale=True) for item in (self.data or {}).get("warnings", [])]
+                warning_data_stale = bool(warnings)
                 dwd_status = "unavailable"
-                provider_status["dwd"] = {"enabled": True, "status": "unavailable", "technical_status": "unavailable", "warning_status": "unknown", "error": type(err).__name__}
+                provider_status["dwd"] = {"enabled": True, "status": "unavailable", "technical_status": "unavailable", "warning_status": "unknown", "warning_count": len(warnings), "retained_previous_warnings": warning_data_stale, "error": type(err).__name__}
         warning_score, official_risks = apply_official_warning_risks(score, warnings)
         if official_risks:
             score = warning_score
@@ -288,6 +305,7 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             "summary_en": summary_en,
             "risks": risks,
             "warnings": warnings,
+            "warning_data_stale": warning_data_stale,
             "radar": radar,
             "sources": sorted(set(sources)),
             "errors": errors,

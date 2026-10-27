@@ -138,12 +138,15 @@ def _risk_reason(risk: Risk) -> str:
 
 
 def safety_assessment(current: Hour | None, warnings: Iterable[dict[str, Any]], *, data_quality: DataQuality) -> SafetyAssessment:
-    if current is None or current.temperature is None or current.wind is None or data_quality.status in {"unavailable", "unknown", "stale", "partial"}:
+    if current is None or current.temperature is None or current.wind is None or data_quality.status in {"unavailable", "unknown", "stale"}:
         return SafetyAssessment("gray", 0, ("Sicherheitsrelevante Wetterdaten sind nicht vollständig verfügbar.",))
     risks = risks_for_hour(current)
     reasons = [_risk_reason(risk) for risk in risks]
     highest_warning = 0
     uncertain_warning = False
+    if data_quality.status == "partial" and "dwd_failed" in data_quality.reason:
+        uncertain_warning = True
+        reasons.append("DWD-Warnungen momentan nicht erreichbar; daraus wird keine Entwarnung abgeleitet.")
     for warning in warnings:
         relevance = warning.get("location_relevance")
         if relevance not in (None, "confirmed"):

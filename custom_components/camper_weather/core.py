@@ -128,6 +128,7 @@ def apply_official_warning_risks(score: int | None, warnings: list[dict[str, Any
     risks: list[Risk] = []
     result = score
     seen: set[tuple[Any, ...]] = set()
+    unknown_scope_reported = False
     for warning in warnings:
         warning_key = (warning.get("warning_id"), warning.get("identifier"), warning.get("event"), warning.get("start"), warning.get("end"), warning.get("region_id"), warning.get("regionName"), warning.get("level"))
         if warning_key in seen:
@@ -141,7 +142,9 @@ def apply_official_warning_risks(score: int | None, warnings: list[dict[str, Any
             level = 0
         event = str(warning.get("summary") or warning.get("event") or warning.get("headline") or "Amtliche Wetterwarnung")
         if not confirmed:
-            risks.append(Risk("warning_scope", "unknown", 0, f"DWD-Warnung Stufe {level} ist {relevance or 'räumlich unbestimmt'}; keine bestätigte lokale Zuordnung.", None))
+            if not unknown_scope_reported:
+                risks.append(Risk("warning_scope", "unknown", 0, "Eine amtliche Warnung konnte geografisch nicht eindeutig zugeordnet werden; sie wird separat angezeigt und nicht als lokale Warnung gewertet.", None))
+                unknown_scope_reported = True
             continue
         if level >= 3:
             risks.append(Risk("official_warning", "critical", 100, f"Amtliche DWD-Warnung Stufe {level}: {event}"))

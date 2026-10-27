@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0-beta.11] – 2026-10-27
+
+### Deutsch
+
+- DWD-Warnungen werden mit den offiziellen Warncell-Polygonen für Landkreis- und Küstengebiete gegen den tatsächlich ausgewählten Standort geprüft.
+- Eindeutig ortsfremde Warnungen werden ausgeschlossen; unklare Zuordnungen bleiben separat und beeinflussen den lokalen Camping-Score nicht.
+- Standortdiagnose, veraltete Antworten und native Auswahl-/Planer-Eingaben wurden gegen wiederholte HA-Updates abgesichert.
+- Prognose-/Aktivitätsdarstellung und Warnungszusammenfassungen wurden dedupliziert und klarer zwischen Komfort und Sicherheit getrennt.
+
+### English
+
+- DWD warnings now use the official Warncell polygons for county and coastal areas to evaluate the selected location.
+- Clearly unrelated warnings are excluded; genuinely unresolved geography remains separate and does not change the local camping score.
+- Location diagnostics, stale responses, and native location/planner inputs are protected against repeated HA updates.
+- Forecast/activity presentation and warning summaries are deduplicated and separate comfort from safety.
+
+This remains a beta. No productive Home Assistant installation or iPhone/WebKit acceptance is included in this release.
+
 ## [0.1.0-beta.10] – 2026-10-27
 
 ### Deutsch
