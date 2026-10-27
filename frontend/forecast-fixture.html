@@ -1,0 +1,22 @@
+<!doctype html><meta charset="utf-8"><title>Camper Weather forecast fixture</title>
+<camper-weather-card></camper-weather-card>
+<script src="/custom_components/camper_weather/www/camper-weather-card.js"></script>
+<script>
+  const card = document.querySelector("camper-weather-card");
+  const start = new Date("2026-10-27T08:00:00+02:00");
+  const forecast = Array.from({length:168}, (_, index) => ({
+    time: new Date(start.getTime() + index * 3600000).toISOString(),
+    temperature: index === 7 ? null : 8 + Math.sin(index / 7) * 8,
+    precipitation: index % 11 === 0 ? 2.4 : index === 4 ? null : 0,
+    probability: index % 11 === 0 ? 80 : 10,
+    wind: 8 + (index % 5),
+    gusts: 14,
+    weather_code: index % 11 === 0 ? 61 : index % 24 > 17 ? 0 : 2,
+    is_day: index % 24 > 6 && index % 24 < 19,
+    score: 80,
+  }));
+  card.setConfig({default_view:1});
+  card._data = {entry_id:"fixture", name:"Testort", current:{temperature:18, apparent_temperature:18, weather_code:1, wind:4, gusts:8}, camping_score:85, location:{latitude:52.52,longitude:13.405,source:"tracker"}, forecast, radar:{frames:[]}, recommendations:{}, risks:[],warnings:[],provider_status:{},sources:["open_meteo"],errors:[],updated_at:new Date().toISOString()};
+  card._hass = {connection:{}, callWS: async () => ({entry_id:"fixture", current:{mode:"tracker"}, active:{latitude:52.52,longitude:13.405,source:"tracker"}, destinations:[]})};
+  card._ensureShell();
+</script>

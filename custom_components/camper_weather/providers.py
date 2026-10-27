@@ -66,7 +66,7 @@ def deduplicate_dwd_warnings(warnings: list[dict[str, Any]]) -> list[dict[str, A
 
 async def async_open_meteo(session: ClientSession, latitude: float, longitude: float) -> tuple[Hour, ...]:
     params = {
-        "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "UTC",
+        "latitude": round(latitude, 4), "longitude": round(longitude, 4), "timezone": "auto",
         "forecast_days": 7,
         "hourly": "temperature_2m,apparent_temperature,precipitation,precipitation_probability,wind_speed_10m,wind_gusts_10m,uv_index,snowfall,weather_code,thunderstorm_probability,is_day",
         "current": "temperature_2m,apparent_temperature,precipitation,wind_speed_10m,wind_gusts_10m,weather_code",

@@ -10,7 +10,11 @@ Choose **Motorhome GPS**, **Home**, **Manual location** or a saved destination. 
 
 ## 3. Reading the forecast
 
-Use **24 h**, **48 h** or **7 days**. Temperature, precipitation and wind are shown in local time. Missing data is shown as unavailable rather than guessed.
+Use **24 h**, **48 h** or **7 days**. The green line shows temperature and blue bars show actual precipitation in mm. Use **Show wind** to add a separate dashed wind curve. Symbols below the time axis are derived from the weather code and local day/night phase. A point can be selected with mouse or touch to show its detail values. The 7-day view uses daily minimum/maximum temperature and daily precipitation totals instead of 168 individual points. Missing values remain unavailable; precipitation probability (%) is kept separate from precipitation amount (mm).
+
+![Actual desktop chart](assets/camper-weather-chart-desktop.png)
+
+![Actual mobile-width chart](assets/camper-weather-chart-mobile.png)
 
 ## 4. Safety and comfort
 

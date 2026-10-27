@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.1] – 2026-10-27
+
+### Deutsch
+
+- Neues Wetterdiagramm mit automatisch skalierter grüner Temperaturkurve, dezenten Rasterlinien und lokaler Zeitachse.
+- Echte Niederschlagsmengen werden als blaue mm-Balken mit eigener Skala gezeigt; fehlende Werte bleiben unbekannt und werden nicht als 0 mm interpretiert.
+- Wind kann separat als fachlich getrennte km/h-Kurve ein- und ausgeblendet werden.
+- Wettercode- und Tag/Nacht-Symbole, Touch-/Hover-Auswahl und Detailtooltip ergänzt.
+- 7-Tage-Ansicht auf Tages-Minimum/-Maximum und Tagessummen umgestellt; bestehende Stundenliste und fachliche Bewertungslogik bleiben erhalten.
+
+### English
+
+- Added an automatically scaled green temperature line with subtle grid lines and a local-time axis.
+- Actual precipitation amounts are rendered as blue mm bars with their own scale; missing values remain unknown and are never treated as 0 mm.
+- Wind can be shown or hidden separately as a correctly scaled km/h series.
+- Added weather-code and day/night symbols, touch/hover selection and a detail tooltip.
+- The 7-day view now uses daily temperature minimum/maximum and totals; the existing hourly list and assessment logic remain unchanged.
+
+The chart uses the existing normalized Open-Meteo hourly fields. Open-Meteo requests now use the location's automatic timezone so daylight-saving transitions and local day/night labels remain aligned. No productive Home Assistant installation or iPhone/WebKit acceptance is included in this release.
+
 ## [0.1.0] – 2026-10-27
 
 ### Deutsch

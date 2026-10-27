@@ -4,7 +4,7 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "camper_weather"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 CARD_VERSION = VERSION
 CARD_PATH = "/camper_weather/camper-weather-card.js"
 PLATFORMS = [Platform.SENSOR, Platform.BINARY_SENSOR, Platform.WEATHER]
