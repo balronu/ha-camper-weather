@@ -8,7 +8,8 @@ from uuid import uuid4
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
-from .core import Hour, assess_activity_window, suggest_activity_windows
+from .core import Hour, suggest_activity_windows
+from .engine import DataQuality, LocationContext, evaluate_window, serialise
 
 
 class ActivityStore:
@@ -55,14 +56,16 @@ class ActivityStore:
         return list(self._items.values())
 
 
-def assess_plan(plan: dict[str, Any], hours: list[Hour]) -> dict[str, Any]:
+def assess_plan(plan: dict[str, Any], hours: list[Hour], warnings: list[dict[str, Any]] | None = None, *, location: LocationContext | None = None, quality: DataQuality | None = None) -> dict[str, Any]:
     try:
         start = datetime.fromisoformat(str(plan["start_at"]))
         duration = int(plan["duration_minutes"])
     except (KeyError, TypeError, ValueError):
         return {"score": None, "risks": [{"name": "data", "severity": "unknown", "reason": "Ungültige Planungsdaten"}], "stale": True}
-    score, risks = assess_activity_window(hours, str(plan.get("activity", "outdoor")), start, duration)
-    return {"score": score, "risks": [risk.__dict__ for risk in risks], "stale": score is None}
+    location = location or LocationContext("current", None, None, None, None, "UTC", None)
+    quality = quality or DataQuality("good", "Planerbewertung mit den verfügbaren Prognosedaten.", None, None, True, ())
+    result = evaluate_window(hours, warnings or [], str(plan.get("activity", "outdoor")), start, duration, location=location, quality=quality)
+    return {"score": result.score, "risks": [{"name": "window", "severity": "warning" if result.safety.level else "info", "reason": reason} for reason in result.reasons], "safety_status": result.safety.status, "data_quality": serialise(result.quality), "stale": not result.complete}
 
 
 def recommendations(hours: list[Hour], activity: str, duration_minutes: int) -> list[dict[str, Any]]:

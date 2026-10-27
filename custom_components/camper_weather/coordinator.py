@@ -37,7 +37,18 @@ from .const import (
     PROVIDER_OPEN_METEO,
 )
 from .core import Hour, activity_score, apply_official_warning_risks, camping_score, suggest_activity_windows
+from .engine import (
+    DataQuality,
+    LocationContext,
+    WeatherSnapshot,
+    build_summary,
+    comfort_assessment,
+    detect_trends,
+    safety_assessment,
+    serialise,
+)
 from .providers import async_dwd_warnings, async_met_norway, async_open_meteo, async_radar_metadata, filter_dwd_warnings
+from .warning_state import WarningStateTracker
 
 LOGGER = logging.getLogger(__name__)
 
@@ -57,6 +68,11 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self._last_query_location: tuple[float, float] | None = None
         self._location_diagnostic: dict[str, Any] = {"status": "unknown"}
         self._update_generation = 0
+        self.warning_state = WarningStateTracker(hass, entry.entry_id)
+
+    async def async_load_warning_state(self) -> None:
+        """Load warning identities before the first coordinator refresh."""
+        await self.warning_state.async_load()
 
     def _location(self) -> tuple[float, float, str, bool]:
         runtime = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id, {}).get("location")
@@ -183,7 +199,8 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if not hours:
             raise UpdateFailed("Keine Wetterprognose verfügbar")
         current = hours[0]
-        score, risks = camping_score(current, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))
+        base_score, risks = camping_score(current, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))
+        score = base_score
         warnings: list[dict[str, Any]] = []
         dwd_status = "disabled"
         radar: dict[str, Any] = {}
@@ -212,7 +229,16 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         if official_risks:
             score = warning_score
             risks = [*risks, *official_risks]
-        recommendations = {activity: suggest_activity_windows(list(hours), activity, reference_time=datetime.now(UTC)) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")}
+        now = datetime.now(UTC)
+        data_quality = DataQuality("partial" if errors else "good", "; ".join(errors) if errors else "Alle ausgewählten Wetterquellen haben geantwortet.", now, 0, True, tuple(sorted(set(sources))))
+        location_context = LocationContext(location_mode, location_source, location_source, latitude, longitude, self.hass.config.time_zone, current.elevation, location_stale)
+        comfort = comfort_assessment(current, awning_wind=float(self.options.get(CONF_AWNING_WIND, DEFAULT_AWNING_WIND)), frost_temp=float(self.options.get(CONF_FROST_TEMP, DEFAULT_FROST_TEMP)))
+        safety = safety_assessment(current, warnings, data_quality=data_quality)
+        trends = detect_trends(hours, now=now)
+        warning_events = self.warning_state.update(warnings, available=dwd_status not in {"unavailable", "disabled", "outside_supported_area"}, now=now)
+        for event in warning_events:
+            self.hass.bus.async_fire(f"camper_weather_warning_{event.phase}", {"entry_id": self.entry.entry_id, "location_mode": location_mode, "location_reference": location_source, "warning_id": event.identity.key(), "warning_type": event.event, "severity": event.level, "source": event.source, "data_quality": event.quality, "observed_at": event.observed_at.isoformat()})
+        recommendations = {activity: suggest_activity_windows(list(hours), activity, reference_time=now) for activity in ("walking", "hiking", "cycling", "ebike", "jogging", "skiing", "swimming", "barbecue", "fishing")}
         if any(risk.severity == "critical" for risk in official_risks):
             recommendations = {activity: [] for activity in recommendations}
         elif official_risks:
@@ -243,12 +269,29 @@ class CamperWeatherCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self._location_retry_count = 0
             raise UpdateFailed("Standort hat sich während der Wetterabfrage geändert")
         self._location_retry_count = 0
+        snapshot = WeatherSnapshot(location_context, current, hours, comfort, safety, data_quality, trends, tuple(warnings))
+        summary = build_summary(snapshot, "de")
+        summary_en = build_summary(snapshot, "en")
+        if self.data:
+            previous_safety = self.data.get("safety_status")
+            if previous_safety and previous_safety != safety.status:
+                self.hass.bus.async_fire("camper_weather_risk_changed", {"entry_id": self.entry.entry_id, "old_status": previous_safety, "new_status": safety.status, "location_mode": location_mode, "data_quality": data_quality.status})
         return {
             "location": {"mode": location_mode, "latitude": latitude, "longitude": longitude, "source": location_source, "stale": location_stale, "fallback": location_source.endswith("_fallback"), "diagnostic": self._location_diagnostic, "updated_at": datetime.now(UTC).isoformat()},
             "location_revision": location_revision,
             "hours": hours,
             "current": current,
             "camping_score": score,
+            "comfort_score": comfort.score,
+            "comfort_label": comfort.label,
+            "comfort_reasons": list(comfort.reasons),
+            "safety_status": safety.status,
+            "safety_level": safety.level,
+            "safety_reasons": list(safety.reasons),
+            "data_quality": serialise(data_quality),
+            "trends": serialise(trends),
+            "summary": summary,
+            "summary_en": summary_en,
             "risks": risks,
             "warnings": warnings,
             "radar": radar,

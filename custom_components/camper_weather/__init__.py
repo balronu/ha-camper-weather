@@ -15,6 +15,7 @@ from .const import CARD_PATH, CARD_VERSION, CONF_LOCATION_MODE, DOMAIN, PLATFORM
 from .coordinator import CamperWeatherCoordinator
 from .location import LocationStore
 from .planner import ActivityStore
+from .services import async_setup_services
 
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 DATA_COORDINATOR = "coordinator"
@@ -28,6 +29,7 @@ async def async_setup(hass: HomeAssistant, config: dict[str, Any]) -> bool:
     if hasattr(hass, "http"):
         add_extra_js_url(hass, f"{CARD_PATH}?v={CARD_VERSION}")
     await async_setup_websocket(hass)
+    async_setup_services(hass)
     hass.data[DOMAIN]["card_url"] = f"{CARD_PATH}?v={CARD_VERSION}"
     return True
 
@@ -36,12 +38,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Keep command registration valid when HA reloads an entry independently.
     await async_setup_websocket(hass)
     coordinator = CamperWeatherCoordinator(hass, entry)
-    await coordinator.async_config_entry_first_refresh()
     planner = ActivityStore(hass)
     await planner.async_load()
     location = LocationStore(hass, entry.entry_id, coordinator.options.get(CONF_LOCATION_MODE, "config"))
     await location.async_load()
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = {DATA_COORDINATOR: coordinator, "planner": planner, "location": location}
+    await coordinator.async_load_warning_state()
+    await coordinator.async_config_entry_first_refresh()
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True

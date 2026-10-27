@@ -1,0 +1,42 @@
+evaluate_window:
+  name: Evaluate weather window
+  description: Evaluate a planned activity window using the current Camper Weather forecast, safety status, comfort score, and data quality.
+  fields:
+    entry_id:
+      name: Config entry
+      description: Optional config entry ID; required when more than one Camper Weather entry is loaded.
+      required: false
+      selector:
+        text:
+    start_at:
+      name: Start
+      description: Start of the planned activity window.
+      required: true
+      selector:
+        datetime:
+    duration_minutes:
+      name: Duration
+      description: Duration of the activity in minutes.
+      required: true
+      selector:
+        number:
+          min: 15
+          max: 720
+          step: 15
+          mode: box
+    activity:
+      name: Activity
+      description: Activity profile used for the comfort assessment.
+      required: true
+      selector:
+        select:
+          options:
+            - walking
+            - hiking
+            - cycling
+            - ebike
+            - jogging
+            - skiing
+            - swimming
+            - barbecue
+            - fishing
