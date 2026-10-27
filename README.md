@@ -2,7 +2,7 @@
 
 **Wetterplanung, Warnungen und Freizeitplanung für Wohnmobile in Home Assistant.**
 
-> **v0.1.1 Stable** erweitert die stabile Veröffentlichung um ein fachlich getrenntes Wetterdiagramm für Temperatur, Niederschlag und Wind.
+> **v0.1.2 Stable** ergänzt eine kompakte, standardmäßig eingeklappte Lovelace-Karte. Ein Klick zeigt die vollständige Wetteroberfläche.
 
 ![Camper Weather – Produktübersicht](docs/assets/camper-weather-overview.png)
 
@@ -24,7 +24,7 @@
 ## Installation über HACS
 
 1. In Home Assistant **HACS → Integrationen** öffnen.
-2. Nach **Camper Weather** suchen und die stabile Version `v0.1.1` installieren.
+2. Nach **Camper Weather** suchen und die stabile Version `v0.1.2` installieren.
 3. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 4. **Camper Weather** auswählen und Wetteranbieter, Standortquelle und Aktualisierungsintervall konfigurieren.
 5. Eine Lovelace-Karte über den Karten-Editor hinzufügen. Die Integration registriert die Kartenressource automatisch.
@@ -52,6 +52,8 @@ entry_id: YOUR_CONFIG_ENTRY_ID
 ```
 
 Die `entry_id` ist nur erforderlich, wenn mehrere Camper-Weather-Einträge vorhanden sind. Die Karte enthält Übersicht, Vorhersage, Warnungen, Aktivitäten, Planer, Karte und Anbieterstatus. Native Auswahlfelder und Eingabefelder bleiben während Home-Assistant-State-Updates stabil.
+
+Beim Laden des Dashboards erscheint die Karte zunächst kompakt und eingeklappt mit Temperatur, Wind, Camping-Score und Sicherheitsfarbe. Der Kartenkopf bleibt sichtbar; ein Klick öffnet oder schließt die vollständige Oberfläche. Im eingeklappten Zustand werden keine Karte, kein Radar und keine Diagramme initialisiert.
 
 ## Status, Scores und Vorhersage
 
@@ -116,7 +118,7 @@ Camper Weather steht unter der im Repository enthaltenen [Lizenz](LICENSE). Dank
 
 ## English
 
-Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.1 Stable** adds a data-correct temperature, precipitation and wind chart while keeping the stable integration boundaries.
+Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.2 Stable** adds a compact, collapsed-by-default Lovelace card that expands to the complete weather interface on click.
 
 It provides 24-hour, 48-hour and 7-day forecasts, separate safety and comfort indicators, DWD warning geography, tracker/Home/manual/destination locations, a target-aware activity planner, MapLibre and RainViewer. Install it through HACS, configure the integration from **Settings → Devices & services**, and add the `custom:camper-weather-card` Lovelace card. See the [English user guide](docs/USER_GUIDE_EN.md) and [English installation guide](docs/INSTALLATION_EN.md).
 
@@ -126,4 +128,4 @@ The supplied overview image is a marketing/product overview graphic, not a singl
 
 - Website: https://www.smartcamper765.de
 - Repository: https://github.com/balronu/ha-camper-weather
-- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.1
+- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.2

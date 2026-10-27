@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.2] – 2026-10-27
+
+### Deutsch
+
+- Camper Weather startet in Lovelace jetzt als kompakte, einklappbare Statuskarte mit Titel, Sicherheitsfarbe, Temperatur, Wind und Camping-Score.
+- Ein Klick auf den Kartenkopf öffnet alle sieben bestehenden Bereiche; ein weiterer Klick klappt sie wieder ein.
+- Home-Assistant-State-Updates verändern den Aufklappzustand nicht und aktualisieren die Kurzwerte ohne zusätzliche Wetterabfragen.
+- MapLibre, Radar und Diagramme werden im eingeklappten Zustand nicht initialisiert; bestehende Standort-, Planner-, Eingabe- und Dropdown-Regressionsschutzpfade bleiben erhalten.
+- Desktop- und Mobile-Chromium-Tests prüfen Initialzustand, Pointer-/Klickbedienung, State-Updates, fehlende Daten, Sicherheitsfarben und alle sieben Bereiche.
+
+### English
+
+- Camper Weather now starts in Lovelace as a compact collapsible status card with title, safety color, temperature, wind and camping score.
+- Clicking the card header opens all seven existing sections; clicking it again collapses the card.
+- Home Assistant state updates do not change the expanded state and update the compact values without additional weather requests.
+- MapLibre, radar and charts are not initialized while collapsed; existing location, planner, input and dropdown regression protections remain in place.
+- Desktop and mobile Chromium tests cover the initial state, pointer/click interaction, state updates, missing data, safety colors and all seven sections.
+
+WebKit/iPhone acceptance remains a manual follow-up because the host libraries required for the WebKit runner are unavailable. No productive Home Assistant installation or dashboard outside this card was changed.
+
 ## [0.1.1] – 2026-10-27
 
 ### Deutsch

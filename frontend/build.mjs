@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 
 const source = "../custom_components/camper_weather/www/camper-weather-card.js";
 const input = await readFile(new URL(source, import.meta.url), "utf8");
-if (!input.includes('const VERSION = "0.1.1"') || !input.includes("customElements.define")) {
+if (!input.includes('const VERSION = "0.1.2"') || !input.includes("customElements.define")) {
   throw new Error("card source is not a stable custom card");
 }
 const digest = createHash("sha256").update(input).digest("hex").slice(0, 12);
