@@ -5,7 +5,7 @@ from custom_components.camper_weather.const import CARD_VERSION, RAINVIEWER_URL,
 
 def test_backend_and_card_versions_match():
     card = Path("custom_components/camper_weather/www/camper-weather-card.js").read_text()
-    assert VERSION == CARD_VERSION == "0.1.0-beta.10"
+    assert VERSION == CARD_VERSION == "0.1.0-beta.11"
     assert f'const VERSION = "{VERSION}"' in card
     assert "tile.openstreetmap.org" not in card
     assert "openfreemap.org/styles/liberty" in card
@@ -19,6 +19,7 @@ def test_backend_and_card_versions_match():
     assert "_updateMapLocation" in card
     assert "_plansLoadFailed" in card
     assert "next_risk" in card
+    assert "dwd_official_warncell_shape" in Path("custom_components/camper_weather/providers.py").read_text()
 
 
 def test_radar_provider_contract_has_frames_and_attribution():

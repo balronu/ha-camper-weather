@@ -18,17 +18,27 @@ try {
   const page = await context.newPage();
   await page.goto(`http://127.0.0.1:${server.address().port}/frontend/location-fixture.html`);
   await page.waitForSelector("[data-location-mode]");
-  await page.locator("[data-location-mode]").evaluate((el) => {
-    el.value = "home_zone"; el.dispatchEvent(new Event("change", {bubbles:true}));
-    el.value = "tracker"; el.dispatchEvent(new Event("change", {bubbles:true}));
-  });
-  await page.waitForTimeout(600);
-  const state = await page.locator("[data-location-mode]").inputValue();
+  const mode = page.locator("[data-location-mode]");
+  for (const requested of ["home_zone", "tracker", "manual", "destination", "tracker"]) {
+    await mode.selectOption(requested);
+    for (let index = 0; index < 3; index += 1) {
+      await page.evaluate(() => { const card = document.querySelector("camper-weather-card"); card.hass = {connection:card._hass.connection, callWS:card._hass.callWS}; });
+    }
+    await page.waitForTimeout(120);
+    if (await mode.inputValue() !== requested) throw new Error(`location selection was replaced: ${requested} / ${await mode.inputValue()}`);
+  }
+  const state = await mode.inputValue();
   const text = await page.locator(".location-panel").innerText();
   const calls = await page.evaluate(() => window.__calls);
   if (state !== "tracker" || !text.includes("tracker")) throw new Error(`stale location state: ${state} / ${text} / ${JSON.stringify(calls)}`);
-  await page.locator("[data-location-mode]").evaluate((el) => { el.value = "home_zone"; el.dispatchEvent(new Event("change", {bubbles:true})); });
-  await page.waitForTimeout(150);
-  if (await page.locator("[data-location-mode]").inputValue() !== "home_zone") throw new Error("home-zone selection was not retained");
-  console.log("Location browser test passed: mobile dark-mode rapid GPS/Home/GPS transitions are current");
+  await page.locator("[data-tab=\"4\"]").click();
+  await page.waitForTimeout(200);
+  await page.locator("[data-plan-field=\"activity\"]").selectOption("cycling");
+  await page.locator("[data-plan-field=\"location_mode\"]").selectOption("manual");
+  for (let index = 0; index < 4; index += 1) {
+    await page.evaluate(() => { const card = document.querySelector("camper-weather-card"); card.hass = {connection:card._hass.connection, callWS:card._hass.callWS}; });
+  }
+  if (await page.locator("[data-plan-field=\"activity\"]").inputValue() !== "cycling") throw new Error("planner activity selection was replaced");
+  if (await page.locator("[data-plan-field=\"location_mode\"]").inputValue() !== "manual") throw new Error("planner location selection was replaced");
+  console.log("Location browser test passed: mobile dark-mode location and planner selections survive repeated HA updates");
 } finally { await browser.close(); server.close(); }

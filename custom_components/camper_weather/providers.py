@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import re
+import struct
 from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
@@ -11,7 +12,16 @@ from zipfile import BadZipFile, ZipFile
 
 from aiohttp import ClientError, ClientSession
 
-from .const import DWD_CAP_INDEX_URL, DWD_URL, DWD_WARNINGS_PREFIX, MET_URL, OPEN_METEO_URL, RAINVIEWER_URL
+from .const import (
+    DWD_CAP_INDEX_URL,
+    DWD_COAST_SHAPE_URL,
+    DWD_CUSTOMER_SHAPE_URL,
+    DWD_URL,
+    DWD_WARNINGS_PREFIX,
+    MET_URL,
+    OPEN_METEO_URL,
+    RAINVIEWER_URL,
+)
 from .core import Hour, normalize_open_meteo
 
 # WarnWetter's structured 501000xxx namespace identifies official marine
@@ -111,9 +121,77 @@ def _parse_polygon(value: Any) -> list[tuple[float, float]]:
     return points
 
 
+def _read_dwd_shapefile(archive: bytes) -> dict[str, list[list[tuple[float, float]]]]:
+    """Read the small official DWD polygon archive without extra HA dependencies."""
+    geometries: dict[str, list[list[tuple[float, float]]]] = {}
+    with ZipFile(BytesIO(archive)) as zipped:
+        shp_name = next(name for name in zipped.namelist() if name.lower().endswith(".shp"))
+        dbf_name = next(name for name in zipped.namelist() if name.lower().endswith(".dbf"))
+        shp = zipped.read(shp_name)
+        dbf = zipped.read(dbf_name)
+
+    field_count = int.from_bytes(dbf[8:10], "little")
+    record_size = int.from_bytes(dbf[10:12], "little")
+    fields: list[tuple[str, int]] = []
+    offset = 32
+    while offset + 32 <= field_count:
+        descriptor = dbf[offset : offset + 32]
+        if descriptor[0] == 0x0D:
+            break
+        name = descriptor[:11].split(b"\0", 1)[0].decode("latin-1")
+        fields.append((name, descriptor[16]))
+        offset += 32
+    header_size = field_count
+    record_count = int.from_bytes(dbf[4:8], "little")
+    attributes: list[dict[str, str]] = []
+    for index in range(record_count):
+        start = header_size + index * record_size
+        row = dbf[start : start + record_size]
+        values: dict[str, str] = {}
+        cursor = 1
+        for name, width in fields:
+            values[name] = row[cursor : cursor + width].decode("latin-1").strip()
+            cursor += width
+        attributes.append(values)
+
+    cursor = 100
+    shape_index = 0
+    while cursor + 8 <= len(shp) and shape_index < len(attributes):
+        content_words = struct.unpack(">i", shp[cursor + 4 : cursor + 8])[0]
+        content = shp[cursor + 8 : cursor + 8 + content_words * 2]
+        cursor += 8 + content_words * 2
+        shape_index += 1
+        if len(content) < 44 or struct.unpack("<i", content[:4])[0] != 5:
+            continue
+        part_count, point_count = struct.unpack("<ii", content[36:44])
+        parts_offset = 44
+        parts = struct.unpack(f"<{part_count}i", content[parts_offset : parts_offset + 4 * part_count])
+        points_offset = parts_offset + 4 * part_count
+        points = [struct.unpack("<dd", content[points_offset + index * 16 : points_offset + (index + 1) * 16]) for index in range(point_count)]
+        rings: list[list[tuple[float, float]]] = []
+        for part_index, start in enumerate(parts):
+            end = parts[part_index + 1] if part_index + 1 < len(parts) else point_count
+            rings.append([(latitude, longitude) for longitude, latitude in points[start:end]])
+        warncell = attributes[shape_index - 1].get("WARNCELLID", "")
+        if warncell:
+            geometries[warncell] = rings
+    return geometries
+
+
+async def async_dwd_warncell_geometries(session: ClientSession) -> dict[str, list[list[tuple[float, float]]]]:
+    """Fetch official DWD county and coast polygons used by WarncellIDs."""
+    geometries: dict[str, list[list[tuple[float, float]]]] = {}
+    for url in (DWD_CUSTOMER_SHAPE_URL, DWD_COAST_SHAPE_URL):
+        async with session.get(url, timeout=20) as response:
+            response.raise_for_status()
+            geometries.update(_read_dwd_shapefile(await response.read()))
+    return geometries
+
+
 def filter_dwd_warnings(
     warnings: list[dict[str, Any]], *, latitude: float, longitude: float,
     elevation: float | None = None, location_name: str | None = None,
+    geometries: dict[str, list[list[tuple[float, float]]]] | None = None,
 ) -> list[dict[str, Any]]:
     """Filter active DWD records without turning unknown scope into all-clear.
 
@@ -142,9 +220,14 @@ def filter_dwd_warnings(
             pass
         item = dict(warning)
         item["altitude_uncertain"] = bool((altitude_start is not None or altitude_end is not None) and elevation is None)
-        parsed_polygon = _parse_polygon(warning.get("polygon"))
-        if parsed_polygon:
-            if not _point_in_polygon(latitude, longitude, parsed_polygon):
+        parsed_polygons = [_parse_polygon(warning.get("polygon"))]
+        if not parsed_polygons[0] and geometries:
+            shape = geometries.get(str(warning.get("region_id", "")))
+            if shape:
+                parsed_polygons = [ring for ring in shape if ring]
+                item["geography_source"] = "dwd_official_warncell_shape"
+        if any(parsed_polygons):
+            if not any(_point_in_polygon(latitude, longitude, polygon) for polygon in parsed_polygons):
                 continue
             item["location_relevance"] = "confirmed"
             item["location_relevance_reason"] = "Standort liegt innerhalb der gelieferten DWD-Geometrie."
@@ -188,6 +271,15 @@ async def async_dwd_warnings(session: ClientSession) -> list[dict[str, Any]]:
             if isinstance(warning, dict):
                 warnings.append({**warning, "region_id": str(region_id)})
     await _enrich_dwd_cap_geometry(session, warnings)
+    try:
+        geometries = await async_dwd_warncell_geometries(session)
+    except (AttributeError, ClientError, OSError, TimeoutError, ValueError, BadZipFile, StopIteration, struct.error):
+        geometries = {}
+    for warning in warnings:
+        polygon = geometries.get(str(warning.get("region_id", "")))
+        if polygon and not warning.get("polygon"):
+            warning["polygon"] = " ".join(f"{lat},{lon}" for lat, lon in polygon[0])
+            warning["geography_source"] = "dwd_official_warncell_shape"
     return warnings
 
 

@@ -109,3 +109,29 @@ def test_dwd_district_scope_is_explicitly_possible_or_unknown_not_confirmed():
 def test_dwd_marine_polygon_can_confirm_a_coastal_location():
     result = filter_dwd_warnings([{"region_id": "501000008", "level": 2, "event": "BÖEN", "start": 0, "polygon": "54.0,9.0 55.0,9.0 55.0,10.0 54.0,10.0"}], latitude=54.5, longitude=9.5)
     assert result[0]["location_relevance"] == "confirmed"
+
+
+def test_official_warncell_geometry_excludes_remote_helgoland_and_aurich():
+    geometries = {
+        "501000002": [[(54.1, 7.8), (54.1, 8.0), (54.0, 8.0), (54.0, 7.8)]],
+        "903452002": [[(53.4, 7.2), (53.4, 7.8), (53.0, 7.8), (53.0, 7.2)]],
+    }
+    warnings = [
+        {"region_id": "501000002", "regionName": "Helgoland", "level": 2, "event": "WIND", "start": 0, "end": 4102444800000},
+        {"region_id": "903452002", "regionName": "Kreis Aurich - Küste", "level": 2, "event": "WIND", "start": 0, "end": 4102444800000},
+    ]
+    assert filter_dwd_warnings(warnings, latitude=49.3, longitude=7.05, geometries=geometries) == []
+
+
+def test_missing_official_geometry_remains_unknown_not_confirmed():
+    result = filter_dwd_warnings([{"region_id": "903452002", "regionName": "Kreis Aurich - Küste", "level": 2, "event": "WIND", "start": 0, "end": 4102444800000}], latitude=49.3, longitude=7.05)
+    assert result[0]["location_relevance"] == "unknown"
+
+
+def test_official_multipolygon_confirms_when_point_is_in_any_part():
+    geometries = {"100": [
+        [(50.0, 6.0), (50.0, 6.1), (49.9, 6.1), (49.9, 6.0)],
+        [(49.3, 7.0), (49.3, 7.1), (49.2, 7.1), (49.2, 7.0)],
+    ]}
+    result = filter_dwd_warnings([{"region_id": "100", "level": 2, "event": "WIND", "start": 0, "end": 4102444800000}], latitude=49.25, longitude=7.05, geometries=geometries)
+    assert result[0]["location_relevance"] == "confirmed"

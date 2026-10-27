@@ -120,3 +120,12 @@ def test_duplicate_official_warning_is_counted_once():
     ])
     assert score == 55
     assert len([risk for risk in risks if risk.name == "official_warning"]) == 1
+
+
+def test_unknown_warning_scope_is_reported_once_for_many_feed_rows():
+    score, risks = apply_official_warning_risks(95, [
+        {"level": 2, "event": "WIND", "region_id": "a", "location_relevance": "unknown"},
+        {"level": 2, "event": "WIND", "region_id": "b", "location_relevance": "unknown"},
+    ])
+    assert score == 95
+    assert len([risk for risk in risks if risk.name == "warning_scope"]) == 1

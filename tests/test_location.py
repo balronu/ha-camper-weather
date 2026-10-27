@@ -90,3 +90,37 @@ def test_tracker_without_coordinates_is_explicit_fallback_diagnostic():
     latitude, longitude, source, stale = coordinator._location()
     assert (latitude, longitude, source, stale) == (50.0, 8.0, "tracker_fallback", True)
     assert coordinator._location_diagnostic["status"] == "missing_coordinates"
+
+
+def test_runtime_home_zone_does_not_fall_back_to_configured_tracker():
+    hass = type("Hass", (), {})()
+    hass.config = type("Config", (), {"latitude": 50.0, "longitude": 8.0})()
+    hass.states = States({"device_tracker.wohnmobil_zoe": State("home", latitude=52.5, longitude=13.4)})
+    hass.data = {"camper_weather": {"entry": {"location": type("Runtime", (), {"current": {"mode": "home_zone"}})()}}}
+    coordinator = object.__new__(CamperWeatherCoordinator)
+    coordinator.hass = hass
+    coordinator.entry = type("Entry", (), {"entry_id": "entry"})()
+    coordinator.options = {"location_mode": "tracker", "tracker": "device_tracker.wohnmobil_zoe"}
+    coordinator._last_valid_location = None
+    coordinator._last_valid_location_mode = None
+
+    assert coordinator._location()[2:] == ("home_zone_fallback", True)
+
+
+def test_location_mode_change_does_not_reuse_previous_mode_coordinates():
+    hass = type("Hass", (), {})()
+    hass.config = type("Config", (), {"latitude": 50.0, "longitude": 8.0})()
+    hass.states = States({"device_tracker.wohnmobil_zoe": State("home", latitude=52.5, longitude=13.4)})
+    runtime = type("Runtime", (), {"current": {"mode": "tracker"}})()
+    hass.data = {"camper_weather": {"entry": {"location": runtime}}}
+    coordinator = object.__new__(CamperWeatherCoordinator)
+    coordinator.hass = hass
+    coordinator.entry = type("Entry", (), {"entry_id": "entry"})()
+    coordinator.options = {"location_mode": "tracker", "tracker": "device_tracker.wohnmobil_zoe"}
+    coordinator._last_valid_location = None
+    coordinator._last_valid_location_mode = None
+    assert coordinator._location()[2:] == ("tracker", False)
+
+    runtime.current = {"mode": "home_zone"}
+    hass.states = States({"device_tracker.wohnmobil_zoe": State("unavailable")})
+    assert coordinator._location()[2:] == ("home_zone_fallback", True)
