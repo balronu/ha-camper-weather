@@ -1,5 +1,31 @@
 # Changelog
 
+## [0.1.0] – 2026-10-27
+
+### Deutsch
+
+- Erste stabile Veröffentlichung von Camper Weather nach manueller Beta.13-Abnahme auf Home Assistant 2026.10.4.
+- Wettervorhersage für 24 Stunden, 48 Stunden und 7 Tage mit lesbarer Zeit- und Temperaturskala.
+- Getrennter Sicherheitsstatus und Komfortscore sowie Camping-Score mit Datenqualitätsanzeige.
+- DWD-Warnungen mit offizieller Landkreis-/Küstengeometrie, Zeit- und Höhenprüfung, Deduplizierung und konservativer Behandlung unklarer Zuordnungen.
+- Standortmodi für Wohnmobil-GPS, Zuhause, manuelle Orte und gespeicherte Reiseziele.
+- Freizeitplaner mit eigenen Zielkoordinaten, Bewertung, Speichern, Bearbeiten und stabiler Eingabe während HA-Updates.
+- MapLibre-Karte und RainViewer-Regenradar mit begrenztem Ressourcen-Lebenszyklus.
+- Zweisprachige Dokumentation und HACS-Installation.
+
+### English
+
+- First stable Camper Weather release after manual beta.13 acceptance on Home Assistant 2026.10.4.
+- 24-hour, 48-hour and 7-day forecasts with readable time and temperature axes.
+- Separate safety status and comfort score plus a camping score with data-quality reporting.
+- DWD warnings with official county/coastal geometry, time/elevation checks, deduplication and conservative handling of uncertain matches.
+- Motorhome GPS, Home, manual location and saved destination modes.
+- Activity planner with independent target coordinates, assessment, save/edit support and stable input during HA updates.
+- MapLibre map and RainViewer radar with bounded resource lifecycle.
+- Bilingual documentation and HACS installation.
+
+This stable release does not control devices, store a GPS history, or change productive Home Assistant dashboards and automations. Public provider availability and DWD geometry coverage remain limitations.
+
 ## [0.1.0-beta.11] – 2026-10-27
 
 ### Deutsch
