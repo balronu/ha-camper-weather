@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../custom_components/camper_weather/www/camper-weather-card.js", import.meta.url), "utf8");
 const required = [
-  'const VERSION = "0.1.0-beta.12"',
+  'const VERSION = "0.1.0-beta.13"',
   "getStubConfig() { return {}; }",
   'type:"camper_weather/list_entries"',
   "openfreemap.org/styles/liberty",
@@ -17,6 +17,10 @@ const required = [
   "camper_weather/planner/save",
   "camper_weather/planner/delete",
   "data-forecast-range",
+  "data-plan-location-query",
+  "data-plan-location-result",
+  "location_name",
+  "_searchLocation",
   "window.customCards",
 ];
 for (const marker of required) {
