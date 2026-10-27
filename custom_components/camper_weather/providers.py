@@ -98,6 +98,19 @@ def _point_in_polygon(latitude: float, longitude: float, polygon: list[tuple[flo
     return inside
 
 
+def _parse_polygon(value: Any) -> list[tuple[float, float]]:
+    if not isinstance(value, str):
+        return []
+    points: list[tuple[float, float]] = []
+    for point in value.split():
+        try:
+            lat, lon = point.split(",", 1)
+            points.append((float(lat), float(lon)))
+        except (ValueError, TypeError):
+            continue
+    return points
+
+
 def filter_dwd_warnings(
     warnings: list[dict[str, Any]], *, latitude: float, longitude: float,
     elevation: float | None = None, location_name: str | None = None,
@@ -128,26 +141,23 @@ def filter_dwd_warnings(
         except (TypeError, ValueError):
             pass
         item = dict(warning)
-        if str(warning.get("region_id", "")).startswith(DWD_MARINE_AREA_PREFIX):
-            # Never score a sea-area warning as a local camping warning when
-            # the feed provides no geometry proving that the point is in it.
-            continue
         item["altitude_uncertain"] = bool((altitude_start is not None or altitude_end is not None) and elevation is None)
-        polygon = warning.get("polygon")
-        parsed_polygon: list[tuple[float, float]] = []
-        if isinstance(polygon, str):
-            for point in polygon.split():
-                try:
-                    lat, lon = point.split(",", 1)
-                    parsed_polygon.append((float(lat), float(lon)))
-                except (ValueError, TypeError):
-                    continue
+        parsed_polygon = _parse_polygon(warning.get("polygon"))
         if parsed_polygon:
             if not _point_in_polygon(latitude, longitude, parsed_polygon):
                 continue
+            item["location_relevance"] = "confirmed"
+            item["location_relevance_reason"] = "Standort liegt innerhalb der gelieferten DWD-Geometrie."
         else:
             region_name = str(warning.get("regionName") or "").casefold()
-            item["location_uncertain"] = not bool(location_name and region_name and region_name in location_name.casefold())
+            location_matches = bool(location_name and region_name and region_name in location_name.casefold())
+            item["location_relevance"] = "possible" if location_matches else "unknown"
+            item["location_relevance_reason"] = "Gebietsname passt zum aktiven Ortsnamen, aber ein Polygon fehlt." if location_matches else "Polygon oder belastbare Gebietszuordnung fehlt."
+            item["location_uncertain"] = True
+        if str(warning.get("region_id", "")).startswith(DWD_MARINE_AREA_PREFIX) and item["location_relevance"] != "confirmed":
+            # A marine record is only relevant when an official polygon proves
+            # that the active point is inside the marine area.
+            continue
         result_by_identity.append(item)
     return deduplicate_dwd_warnings(result_by_identity)
 

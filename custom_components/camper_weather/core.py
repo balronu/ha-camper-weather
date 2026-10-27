@@ -133,11 +133,16 @@ def apply_official_warning_risks(score: int | None, warnings: list[dict[str, Any
         if warning_key in seen:
             continue
         seen.add(warning_key)
+        relevance = warning.get("location_relevance")
+        confirmed = relevance in (None, "confirmed")
         try:
             level = int(warning.get("level", 0))
         except (TypeError, ValueError):
             level = 0
         event = str(warning.get("summary") or warning.get("event") or warning.get("headline") or "Amtliche Wetterwarnung")
+        if not confirmed:
+            risks.append(Risk("warning_scope", "unknown", 0, f"DWD-Warnung Stufe {level} ist {relevance or 'räumlich unbestimmt'}; keine bestätigte lokale Zuordnung.", None))
+            continue
         if level >= 3:
             risks.append(Risk("official_warning", "critical", 100, f"Amtliche DWD-Warnung Stufe {level}: {event}"))
             result = 0
@@ -167,21 +172,50 @@ def assess_activity_window(hours: list[Hour], activity: str, start: datetime, du
     return activity_score(selected, activity)
 
 
-def suggest_activity_windows(hours: list[Hour], activity: str, duration_minutes: int = 120, limit: int = 3, reference_time: datetime | None = None) -> list[dict[str, Any]]:
-    """Return the best known future windows without hiding dangerous conditions."""
+def suggest_activity_windows(
+    hours: list[Hour], activity: str, duration_minutes: int = 120, limit: int = 3,
+    reference_time: datetime | None = None, warnings: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    """Return deterministic, separated future windows from the next 48 hours."""
     if duration_minutes <= 0:
         return []
     reference_time = reference_time or datetime.now(UTC)
+    horizon = reference_time + timedelta(hours=48)
     candidates: list[dict[str, Any]] = []
     for hour in hours:
-        if hour.time < reference_time:
+        if hour.time < reference_time or hour.time >= horizon:
             continue
         score, risks = assess_activity_window(hours, activity, hour.time, duration_minutes)
         if score is None or any(r.severity == "critical" for r in risks):
             continue
-        candidates.append({"start": hour.time.isoformat(), "duration_minutes": duration_minutes, "score": score, "risks": [risk.__dict__ for risk in risks]})
-    candidates.sort(key=lambda item: item["score"], reverse=True)
-    return candidates[:limit]
+        if warnings:
+            score, official_risks = apply_official_warning_risks(score, warnings)
+            risks = [*risks, *official_risks]
+            if any(risk.severity == "critical" for risk in official_risks):
+                continue
+        selected = [row for row in hours if hour.time <= row.time < hour.time + timedelta(minutes=duration_minutes)]
+        first = selected[0] if selected else hour
+        critical = any(risk.severity == "critical" for risk in risks)
+        uncertain = any(risk.severity == "unknown" for risk in risks)
+        warning = any(risk.severity == "warning" for risk in risks)
+        candidates.append({
+            "start": hour.time.isoformat(), "duration_minutes": duration_minutes, "score": score,
+            "temperature": first.temperature, "wind": first.wind, "gusts": first.gusts,
+            "precipitation_probability": first.precipitation_probability, "weather_code": first.weather_code,
+            "is_day": first.is_day, "safety_status": "red" if critical else "orange" if warning else "yellow" if uncertain else "green",
+            "summary": f"{first.temperature:.0f} °C, Wind {first.wind:.0f} km/h" if first.temperature is not None and first.wind is not None else "Wetterdaten teilweise unbekannt",
+            "risks": [risk.__dict__ for risk in risks],
+        })
+    candidates.sort(key=lambda item: (-int(item["score"] if item["score"] is not None else -1), item["start"]))
+    selected: list[dict[str, Any]] = []
+    separation = timedelta(minutes=max(duration_minutes, 180))
+    for candidate in candidates:
+        start = datetime.fromisoformat(candidate["start"])
+        if all(abs(start - datetime.fromisoformat(item["start"])) >= separation for item in selected):
+            selected.append(candidate)
+            if len(selected) >= limit:
+                break
+    return sorted(selected, key=lambda item: item["start"])
 
 
 def normalize_open_meteo(payload: dict[str, Any]) -> tuple[Hour, ...]:

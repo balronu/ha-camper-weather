@@ -98,3 +98,14 @@ def test_dwd_marine_area_is_not_filtered_by_headline_text():
         {"region_id": "501000008", "level": 2, "event": "BÖEN", "headline": "BÖEN", "start": 0},
     ], latitude=54.5, longitude=9.5)
     assert result == []
+
+
+def test_dwd_district_scope_is_explicitly_possible_or_unknown_not_confirmed():
+    result = filter_dwd_warnings([{"region_id": "100", "level": 2, "event": "WIND", "regionName": "Saarland", "start": 0}], latitude=49.3, longitude=6.9, location_name="Saarland")
+    assert result[0]["location_relevance"] == "possible"
+    assert result[0]["location_relevance_reason"]
+
+
+def test_dwd_marine_polygon_can_confirm_a_coastal_location():
+    result = filter_dwd_warnings([{"region_id": "501000008", "level": 2, "event": "BÖEN", "start": 0, "polygon": "54.0,9.0 55.0,9.0 55.0,10.0 54.0,10.0"}], latitude=54.5, longitude=9.5)
+    assert result[0]["location_relevance"] == "confirmed"

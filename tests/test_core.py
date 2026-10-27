@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from custom_components.camper_weather.core import (
     Hour,
@@ -72,6 +72,15 @@ def test_recommendations_return_reproducible_good_window():
     assert recommendations[0]["score"] >= 0
 
 
+def test_recommendations_are_separated_and_include_weather_summary_fields():
+    start = datetime(2026, 10, 26, 10, tzinfo=UTC)
+    hours = [hour(time=start + timedelta(hours=index)) for index in range(48)]
+    recommendations = suggest_activity_windows(hours, "walking", duration_minutes=60, reference_time=start)
+    assert len(recommendations) <= 3
+    assert all("temperature" in item and "safety_status" in item for item in recommendations)
+    assert all(abs(datetime.fromisoformat(a["start"]) - datetime.fromisoformat(b["start"])) >= timedelta(minutes=180) for index, a in enumerate(recommendations) for b in recommendations[index + 1:])
+
+
 def test_recommendations_skip_past_windows():
     start = datetime(2026, 10, 26, 10, tzinfo=UTC)
     hours = [hour(time=start), hour(time=start.replace(hour=11)), hour(time=start.replace(hour=12))]
@@ -96,6 +105,12 @@ def test_critical_official_warning_overrides_comfort_score():
     score, risks = apply_official_warning_risks(91, [{"level": 3, "event": "STURM"}])
     assert score == 0
     assert risks[0].severity == "critical"
+
+
+def test_unconfirmed_official_warning_is_visible_without_confirmed_score_penalty():
+    score, risks = apply_official_warning_risks(95, [{"level": 2, "event": "WIND", "location_relevance": "unknown"}])
+    assert score == 95
+    assert risks[0].name == "warning_scope"
 
 
 def test_duplicate_official_warning_is_counted_once():

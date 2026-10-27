@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.1.0-beta.10] – 2026-10-27
+
+### Deutsch
+
+- Native Dropdowns und Touch-/Pointer-Interaktionen werden während HA-State-Updates geschützt.
+- DWD-Warnungen erhalten eine explizite Standortrelevanz; unbekannte Geometrie wird nicht mehr als bestätigte lokale Gefahr bewertet.
+- Warnungsdarstellung zeigt Gebiet, Zeitraum, Stufe und Zuordnungsbegründung kompakt.
+- Aktivitätsempfehlungen nutzen getrennte, deterministische Zeitfenster innerhalb der nächsten 48 Stunden.
+- Temperaturdiagramme enthalten Zeitachse, Temperaturskala und lokale Zeitdarstellung.
+- Planner-Historie, Datenqualität und Anbieterstatus werden verständlicher dargestellt.
+
+### English
+
+- Native dropdowns and touch/pointer interactions are protected during Home Assistant state updates.
+- DWD warnings now expose explicit location relevance; unknown geometry is no longer treated as a confirmed local hazard.
+- Warning cards compactly show area, period, level, and matching rationale.
+- Activity recommendations use separated, deterministic windows within the next 48 hours.
+- Temperature charts include a time axis, temperature scale, and local time display.
+- Planner history, data quality, and provider status are presented more clearly.
+
 ## [0.1.0-beta.9] – 2026-10-27
 
 ### Deutsch

@@ -2,7 +2,7 @@
 
 **Wetter-, Camping- und Freizeitassistent für Wohnmobile in Home Assistant.**
 
-> **v0.1.0-beta.9:** Hotfix für stabile mobile Interaktion, Planner-Ladefehler, Tracker-Refresh und konsistente Risikoanzeige. Beta für isolierte Tests und einen manuellen Home-Assistant-/iPhone-Praxistest. Nicht automatisch in VM 104 installieren.
+> **v0.1.0-beta.10:** Stabilität für native Dropdowns, fachlich getrennte DWD-Relevanz, kompakte 48-Stunden-Aktivitäten und beschriftete Prognosekurven. Beta für isolierte Tests und einen manuellen Home-Assistant-/iPhone-Praxistest. Nicht automatisch in VM 104 installieren.
 
 ## Deutsch
 
@@ -10,7 +10,7 @@ Camper Weather unterstützt Open-Meteo als primäre Prognosequelle, MET Norway a
 
 ### Installation über HACS
 1. HACS → Integrationen → **Camper Weather** suchen.
-2. Für die Beta „Vorabversionen anzeigen“ aktivieren und `v0.1.0-beta.9` auswählen.
+2. Für die Beta „Vorabversionen anzeigen“ aktivieren und `v0.1.0-beta.10` auswählen.
 3. Home Assistant neu laden und **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 4. `Camper Weather` wählen, den Tracker `device_tracker.wohnmobil_zoe` prüfen und den Standort speichern.
 5. Eine Lovelace-Karte über den Karten-Editor hinzufügen. Die Ressource wird automatisch registriert.

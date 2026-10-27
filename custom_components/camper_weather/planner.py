@@ -1,7 +1,7 @@
 """Persistent, forecast-backed activity planning."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -64,8 +64,10 @@ def assess_plan(plan: dict[str, Any], hours: list[Hour], warnings: list[dict[str
         return {"score": None, "risks": [{"name": "data", "severity": "unknown", "reason": "Ungültige Planungsdaten"}], "stale": True}
     location = location or LocationContext("current", None, None, None, None, "UTC", None)
     quality = quality or DataQuality("good", "Planerbewertung mit den verfügbaren Prognosedaten.", None, None, True, ())
+    if start.tzinfo is not None and start < datetime.now(UTC):
+        return {"score": None, "risks": [{"name": "past", "severity": "info", "reason": "Dieses Zeitfenster liegt in der Vergangenheit und wird nicht automatisch neu bewertet."}], "safety_status": "gray", "data_quality": serialise(quality), "stale": False, "past": True}
     result = evaluate_window(hours, warnings or [], str(plan.get("activity", "outdoor")), start, duration, location=location, quality=quality)
-    return {"score": result.score, "risks": [{"name": "window", "severity": "warning" if result.safety.level else "info", "reason": reason} for reason in result.reasons], "safety_status": result.safety.status, "data_quality": serialise(result.quality), "stale": not result.complete}
+    return {"score": result.score, "risks": [{"name": "window", "severity": "warning" if result.safety.level else "info", "reason": reason} for reason in result.reasons], "safety_status": result.safety.status, "data_quality": serialise(result.quality), "stale": not result.complete, "past": False}
 
 
 def recommendations(hours: list[Hour], activity: str, duration_minutes: int) -> list[dict[str, Any]]:
