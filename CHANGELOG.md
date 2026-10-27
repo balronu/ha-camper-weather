@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.1.0-beta.9] – 2026-10-27
+
+### Deutsch
+
+- Frontend-State bei Home-Assistant-Updates stabilisiert: offene Bereiche, Eingaben und native Auswahlfelder bleiben erhalten.
+- MapLibre wird bei gewöhnlichen State-Updates nicht unnötig neu initialisiert.
+- Planner-Ladefehler werden nicht mehr als leere Aktivitätsliste dargestellt; der Backend-Vertrag ist korrigiert.
+- Tracker-State-Änderungen lösen einen gezielten Coordinator-Refresh aus.
+- Sicherheitsstatus, Komfortscore und nächstes Risiko werden getrennt und nachvollziehbar angezeigt.
+
+### English
+
+- Stabilized frontend state across Home Assistant updates: open sections, inputs, and native selects are preserved.
+- MapLibre is no longer reinitialized for ordinary state updates.
+- Planner load failures are no longer rendered as an empty activity list; the backend contract is corrected.
+- Tracker state changes trigger a targeted coordinator refresh.
+- Safety status, comfort score, and next risk are shown separately and transparently.
+
 ## [0.1.0-beta.8] – 2026-10-27
 
 ### Deutsch
