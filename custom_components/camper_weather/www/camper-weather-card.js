@@ -1,5 +1,5 @@
-/* Camper Weather card v0.1.0-beta.11. No credentials or GPS history are stored here. */
-const VERSION = "0.1.0-beta.11";
+/* Camper Weather card v0.1.0-beta.12. No credentials or GPS history are stored here. */
+const VERSION = "0.1.0-beta.12";
 const CARD_TYPE = "camper-weather-card";
 const TABS = ["Übersicht", "Vorhersage", "Warnungen", "Aktivitäten", "Planer", "Karte", "Anbieter"];
 const ACTIVITIES = [["walking", "Spazieren"], ["hiking", "Wandern"], ["cycling", "Fahrrad"], ["ebike", "E-Bike"], ["jogging", "Joggen"], ["skiing", "Skifahren"], ["swimming", "Schwimmen"], ["barbecue", "Grillen"], ["fishing", "Angeln"]];
@@ -66,11 +66,27 @@ class CamperWeatherCard extends HTMLElement {
     if (!this.querySelector(".wrap")) {
       this.innerHTML = `<ha-card><div class="wrap"><header><div><h2>Camper Weather</h2><small class="subtitle"></small></div><strong class="score"></strong></header><nav class="nav"></nav><select class="mobile-nav" aria-label="Ansicht"></select><section class="panel"></section></div></ha-card>`;
       this._style(); this.addEventListener("click", (event) => this._click(event)); this.addEventListener("change", (event) => this._change(event));
-      const beginInteraction = (event) => { if (event.target.closest?.("select,input,textarea,summary,button")) { this._interactionLock = true; this._nativeSelectOpen = event.target.closest?.("select") != null; clearTimeout(this._interactionUnlockTimer); } };
-      const endInteraction = () => { clearTimeout(this._interactionUnlockTimer); this._interactionUnlockTimer = setTimeout(() => { this._nativeSelectOpen = false; this._interactionLock = false; if (!this._isEditing() && this._renderPending) { this._renderPending = false; this._renderPanel(); } }, 150); };
+      const beginInteraction = (event) => {
+        const control = event.target.closest?.("select,input,textarea,summary,button");
+        if (!control) return;
+        if (this._activeNativeSelect && this._activeNativeSelect !== control) this._finishNativeSelect(this._activeNativeSelect);
+        this._interactionLock = true;
+        clearTimeout(this._interactionUnlockTimer);
+        if (control.matches("select")) {
+          this._activeNativeSelect = control;
+          this._nativeSelectOpen = true;
+        }
+      };
+      const endInteraction = (event) => {
+        const control = event?.target?.closest?.("select");
+        if (control && control === this._activeNativeSelect) return;
+        this._interactionLock = false;
+        this._flushPendingRender();
+      };
       this.addEventListener("pointerdown", beginInteraction); this.addEventListener("pointerup", endInteraction); this.addEventListener("touchstart", beginInteraction, {passive:true}); this.addEventListener("touchend", endInteraction, {passive:true});
       this.addEventListener("focusin", (event) => { if (event.target.closest?.("select,input,textarea")) { this._interactionLock = true; clearTimeout(this._interactionUnlockTimer); } });
       this.addEventListener("change", endInteraction); this.addEventListener("focusout", endInteraction);
+      this.addEventListener("pointercancel", (event) => { const control = event.target.closest?.("select"); if (control === this._activeNativeSelect) this._finishNativeSelect(control); });
     }
     const data = this._data || {};
     this.querySelector(".subtitle").textContent = `${data.name || "Wetter"} · v${VERSION}`;
@@ -98,7 +114,26 @@ class CamperWeatherCard extends HTMLElement {
     if (event.target.matches("[data-edit-plan]")) { this._editPlan(event.target.dataset.editPlan); return; }
     if (event.target.matches("[data-forecast-range]")) { this._forecastRange = Number(event.target.dataset.forecastRange); this._renderPanel(); }
   }
-  _change(event) { if (event.target.matches(".mobile-nav")) this._switchTab(Number(event.target.value)); if (event.target.matches("[data-plan-field]")) this._draft[event.target.dataset.planField] = event.target.value; if (event.target.matches("[data-radar-speed]")) this._radarSpeed = Number(event.target.value); if (event.target.matches("[data-location-mode]")) this._locationAction("set-mode", event.target.value); }
+  _change(event) {
+    if (event.target.matches(".mobile-nav")) this._switchTab(Number(event.target.value));
+    if (event.target.matches("[data-plan-field]")) this._draft[event.target.dataset.planField] = event.target.value;
+    if (event.target.matches("[data-radar-speed]")) this._radarSpeed = Number(event.target.value);
+    if (event.target.matches("[data-location-mode]")) Promise.resolve(this._locationAction("set-mode", event.target.value)).finally(() => this._finishNativeSelect(event.target));
+    else if (event.target.matches("select")) this._finishNativeSelect(event.target);
+  }
+  _finishNativeSelect(select) {
+    if (select !== this._activeNativeSelect) return;
+    this._activeNativeSelect = null;
+    this._nativeSelectOpen = false;
+    this._interactionLock = false;
+    this._flushPendingRender();
+  }
+  _flushPendingRender() {
+    if (!this._isEditing() && !this._nativeSelectOpen && this._renderPending) {
+      this._renderPending = false;
+      queueMicrotask(() => this._renderPanel());
+    }
+  }
   _switchTab(index) { this._tabIndex = index; if (index === 4 && !this._plans) this._loadPlans(); this._ensureShell(); }
   _destroyMap() { clearTimeout(this._mapTimeout); clearTimeout(this._radarTimer); if (this._mapResizeObserver) this._mapResizeObserver.disconnect(); if (this._mapMarker) { this._mapMarker.remove(); this._mapMarker = null; } if (this._mapInstance) { this._mapInstance.remove(); this._mapInstance = null; } this._mapRadarKey = null; }
   _renderPanel() {
