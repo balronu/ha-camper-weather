@@ -43,7 +43,7 @@ try {
   const state = await mode.inputValue();
   const text = await page.locator(".location-panel").innerText();
   const calls = await page.evaluate(() => window.__calls);
-  if (state !== "tracker" || !text.includes("tracker")) throw new Error(`stale location state: ${state} / ${text} / ${JSON.stringify(calls)}`);
+  if (state !== "tracker" || !text.includes("Wohnmobil-GPS")) throw new Error(`stale location state: ${state} / ${text} / ${JSON.stringify(calls)}`);
   const query = page.locator("[data-location-query]");
   await mode.selectOption("manual");
   await query.fill("Trier");
