@@ -2,7 +2,7 @@
 
 **Wetterplanung, Warnungen und Freizeitplanung für Wohnmobile in Home Assistant.**
 
-> **v0.1.0 Stable** ist die erste stabile Veröffentlichung. Sie basiert auf der manuell geprüften Beta.13-Abnahme auf Home Assistant 2026.10.4.
+> **v0.1.1 Stable** erweitert die stabile Veröffentlichung um ein fachlich getrenntes Wetterdiagramm für Temperatur, Niederschlag und Wind.
 
 ![Camper Weather – Produktübersicht](docs/assets/camper-weather-overview.png)
 
@@ -11,6 +11,7 @@
 ## Funktionen
 
 - Wettervorhersagen für 24 Stunden, 48 Stunden und 7 Tage
+- Wetterdiagramm mit grüner Temperaturlinie, echten Niederschlagsmengen in mm, optionaler Windkurve in km/h, Wettercodes und lokalen Tag-/Nacht-Symbolen
 - Sicherheitsstatus **Grün, Gelb, Orange, Rot oder Grau** und separater Komfortscore von 0–100
 - Camping-Score mit nachvollziehbaren Wettergründen
 - DWD-Warnungen mit zeitlicher, geografischer und – soweit verfügbar – höhenbezogener Prüfung
@@ -23,7 +24,7 @@
 ## Installation über HACS
 
 1. In Home Assistant **HACS → Integrationen** öffnen.
-2. Nach **Camper Weather** suchen und die stabile Version `v0.1.0` installieren.
+2. Nach **Camper Weather** suchen und die stabile Version `v0.1.1` installieren.
 3. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 4. **Camper Weather** auswählen und Wetteranbieter, Standortquelle und Aktualisierungsintervall konfigurieren.
 5. Eine Lovelace-Karte über den Karten-Editor hinzufügen. Die Integration registriert die Kartenressource automatisch.
@@ -57,7 +58,8 @@ Die `entry_id` ist nur erforderlich, wenn mehrere Camper-Weather-Einträge vorha
 - **Sicherheit** beschreibt erkannte Wetter- und Warnrisiken. Grau bedeutet, dass keine ausreichenden Daten für eine sichere Einstufung vorliegen.
 - **Komfort** ist ein separater Wert für Temperatur, Wind und weitere Komfortfaktoren.
 - **Camping-Score** fasst die Eignung der Wetterlage für Camping zusammen.
-- Die Vorhersage bietet 24 Stunden, 48 Stunden und 7 Tage mit Temperatur-, Niederschlags- und Windangaben.
+- Die Vorhersage bietet 24 Stunden, 48 Stunden und 7 Tage mit Temperatur-, Niederschlags- und Windangaben. Die Wochenansicht zeigt Tages-Minimum/-Maximum und Tagessumme; fehlende Niederschlagswerte bleiben unbekannt.
+- Die Windreihe kann separat ein- und ausgeblendet werden. Ein Klick oder Touch auf einen Diagrammpunkt zeigt Zeit/Tag, Temperatur, Niederschlag und Wind.
 - Vergangene Planner-Aktivitäten werden nicht unbemerkt neu bewertet.
 
 ## DWD-Warnungen
@@ -114,7 +116,7 @@ Camper Weather steht unter der im Repository enthaltenen [Lizenz](LICENSE). Dank
 
 ## English
 
-Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.0 Stable** is the first stable release and follows the manually verified beta.13 acceptance on Home Assistant 2026.10.4.
+Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.1 Stable** adds a data-correct temperature, precipitation and wind chart while keeping the stable integration boundaries.
 
 It provides 24-hour, 48-hour and 7-day forecasts, separate safety and comfort indicators, DWD warning geography, tracker/Home/manual/destination locations, a target-aware activity planner, MapLibre and RainViewer. Install it through HACS, configure the integration from **Settings → Devices & services**, and add the `custom:camper-weather-card` Lovelace card. See the [English user guide](docs/USER_GUIDE_EN.md) and [English installation guide](docs/INSTALLATION_EN.md).
 
@@ -124,4 +126,4 @@ The supplied overview image is a marketing/product overview graphic, not a singl
 
 - Website: https://www.smartcamper765.de
 - Repository: https://github.com/balronu/ha-camper-weather
-- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.0
+- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.1

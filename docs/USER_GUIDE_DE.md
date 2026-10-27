@@ -10,7 +10,11 @@ Wähle in der Übersicht **Wohnmobil-GPS**, **Zuhause**, **Manueller Ort** oder 
 
 ## 3. Vorhersage lesen
 
-Nutze die Umschaltung **24 h**, **48 h** oder **7 Tage**. Temperaturverlauf, Niederschlag und Wind werden mit lokaler Zeit dargestellt. Fehlende Daten werden als nicht verfügbar angezeigt.
+Nutze die Umschaltung **24 h**, **48 h** oder **7 Tage**. Die grüne Linie zeigt Temperatur, blaue Balken die tatsächliche Niederschlagsmenge in mm. Wind kann über **Wind einblenden** als separate gestrichelte Kurve zugeschaltet werden. Unter der Zeitachse stehen die aus dem Wettercode und der lokalen Tag-/Nachtphase abgeleiteten Symbole. Ein Punkt lässt sich per Maus oder Touch auswählen und zeigt die Detailwerte. In der Wochenansicht werden Tages-Minimum/-Maximum und Niederschlagssumme statt 168 Einzelpunkte dargestellt. Fehlende Daten werden als nicht verfügbar angezeigt; Regenwahrscheinlichkeit (%) bleibt von Niederschlagsmenge (mm) getrennt.
+
+![Echtes Diagramm im Desktop-Browser](assets/camper-weather-chart-desktop.png)
+
+![Echtes Diagramm in mobiler Breite](assets/camper-weather-chart-mobile.png)
 
 ## 4. Sicherheit und Komfort
 
