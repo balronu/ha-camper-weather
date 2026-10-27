@@ -4,7 +4,7 @@
 
 Camper Weather combines weather forecasts, DWD warnings, camping score and activity planning in one Lovelace card. Safety and comfort are intentionally shown as separate assessments.
 
-The card loads in a compact collapsed state showing temperature, wind, camping score and a colored safety status. Tap or click the card header to open all seven sections; the header remains available to collapse it again. Home Assistant state updates do not change this state.
+The card loads in a compact collapsed state. The first row keeps the safety color, full title and toggle visible; the lower rows show the version, temperature, wind and camping score. On narrow displays, weather values may wrap without truncating the title. Tap or click the card header to open all seven sections; the header remains available to collapse it again. Home Assistant state updates do not change this state.
 
 ![Actual collapsed card in a desktop browser](assets/camper-weather-collapsed-desktop.png)
 

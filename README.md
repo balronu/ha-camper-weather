@@ -2,7 +2,7 @@
 
 **Wetterplanung, Warnungen und Freizeitplanung für Wohnmobile in Home Assistant.**
 
-> **v0.1.2 Stable** ergänzt eine kompakte, standardmäßig eingeklappte Lovelace-Karte. Ein Klick zeigt die vollständige Wetteroberfläche.
+> **v0.1.3 Stable** ergänzt eine robuste, standardmäßig eingeklappte Lovelace-Karte mit vollständigem Titel und responsivem Statuskopf. Ein Klick zeigt die vollständige Wetteroberfläche.
 
 ![Camper Weather – Produktübersicht](docs/assets/camper-weather-overview.png)
 
@@ -24,7 +24,7 @@
 ## Installation über HACS
 
 1. In Home Assistant **HACS → Integrationen** öffnen.
-2. Nach **Camper Weather** suchen und die stabile Version `v0.1.2` installieren.
+2. Nach **Camper Weather** suchen und die stabile Version `v0.1.3` installieren.
 3. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 4. **Camper Weather** auswählen und Wetteranbieter, Standortquelle und Aktualisierungsintervall konfigurieren.
 5. Eine Lovelace-Karte über den Karten-Editor hinzufügen. Die Integration registriert die Kartenressource automatisch.
@@ -118,7 +118,7 @@ Camper Weather steht unter der im Repository enthaltenen [Lizenz](LICENSE). Dank
 
 ## English
 
-Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.2 Stable** adds a compact, collapsed-by-default Lovelace card that expands to the complete weather interface on click.
+Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.3 Stable** adds a robust collapsed-by-default Lovelace header with a full title and responsive status rows; it expands to the complete weather interface on click.
 
 It provides 24-hour, 48-hour and 7-day forecasts, separate safety and comfort indicators, DWD warning geography, tracker/Home/manual/destination locations, a target-aware activity planner, MapLibre and RainViewer. Install it through HACS, configure the integration from **Settings → Devices & services**, and add the `custom:camper-weather-card` Lovelace card. See the [English user guide](docs/USER_GUIDE_EN.md) and [English installation guide](docs/INSTALLATION_EN.md).
 
@@ -128,4 +128,4 @@ The supplied overview image is a marketing/product overview graphic, not a singl
 
 - Website: https://www.smartcamper765.de
 - Repository: https://github.com/balronu/ha-camper-weather
-- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.2
+- Stable release: https://github.com/balronu/ha-camper-weather/releases/tag/v0.1.3

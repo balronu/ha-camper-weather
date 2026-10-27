@@ -4,7 +4,7 @@
 
 Camper Weather verbindet Wettervorhersage, DWD-Warnungen, Camping-Score und Freizeitplanung in einer Lovelace-Karte. Sicherheit und Komfort werden bewusst getrennt dargestellt.
 
-Beim Laden ist die Karte kompakt eingeklappt und zeigt Temperatur, Wind, Camping-Score und einen farbigen Sicherheitsstatus. Tippe oder klicke auf den Kartenkopf, um die sieben Bereiche zu öffnen; der Kopf bleibt zum erneuten Einklappen sichtbar. State-Updates von Home Assistant verändern diesen Zustand nicht.
+Beim Laden ist die Karte kompakt eingeklappt. In der ersten Zeile stehen Sicherheitsfarbe, vollständiger Titel und Aufklapppfeil; darunter folgen Version, Temperatur, Wind und Camping-Score. Auf schmalen Displays dürfen die Wetterwerte umbrechen, ohne den Titel abzuschneiden. Tippe oder klicke auf den Kartenkopf, um die sieben Bereiche zu öffnen; der Kopf bleibt zum erneuten Einklappen sichtbar. State-Updates von Home Assistant verändern diesen Zustand nicht.
 
 ![Echte eingeklappte Karte im Desktop-Browser](assets/camper-weather-collapsed-desktop.png)
 
