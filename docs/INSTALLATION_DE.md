@@ -8,11 +8,17 @@
 
 ## HACS
 
-1. HACS öffnen und **Integrationen** wählen.
-2. `Camper Weather` suchen.
+Die Aufnahme in das offizielle [HACS-Standardrepository](https://github.com/hacs/default/pull/12942) ist beantragt, aber noch nicht von den Maintainer:innen freigegeben.
+
+Bis dahin:
+
+1. HACS öffnen und **Integrationen → ⋮ → Benutzerdefinierte Repositories** wählen.
+2. `balronu/ha-camper-weather` als Repository vom Typ **Integration** hinzufügen.
 3. Die stabile Version `v0.1.3` installieren.
 4. Home Assistant die Integration laden lassen.
 5. Unter **Einstellungen → Geräte & Dienste → Hinzufügen** `Camper Weather` auswählen.
+
+Nach einer offiziellen Katalogaufnahme kann die Integration direkt über die HACS-Suche installiert werden. Es wird keine zweite Einreichung erstellt.
 
 ## Konfiguration
 

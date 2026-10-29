@@ -1,5 +1,7 @@
 # Camper Weather
 
+🇩🇪 **Deutsch** | [🇬🇧 English](README.en.md)
+
 **Wetterplanung, Warnungen und Freizeitplanung für Wohnmobile in Home Assistant.**
 
 > **v0.1.3 Stable** ergänzt eine robuste, standardmäßig eingeklappte Lovelace-Karte mit vollständigem Titel und responsivem Statuskopf. Ein Klick zeigt die vollständige Wetteroberfläche.
@@ -24,12 +26,12 @@
 ## Installation über HACS
 
 1. In Home Assistant **HACS → Integrationen** öffnen.
-2. Nach **Camper Weather** suchen und die stabile Version `v0.1.3` installieren.
+2. Nach **Camper Weather** suchen und die stabile Version `v0.1.3` installieren, sobald die offene [HACS-Katalogaufnahme](https://github.com/hacs/default/pull/12942) von den Maintainer:innen freigegeben wurde.
 3. **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
 4. **Camper Weather** auswählen und Wetteranbieter, Standortquelle und Aktualisierungsintervall konfigurieren.
 5. Eine Lovelace-Karte über den Karten-Editor hinzufügen. Die Integration registriert die Kartenressource automatisch.
 
-Alternativ kann das Repository als benutzerdefiniertes HACS-Repository (`Integration`) hinzugefügt werden.
+Bis zur Katalogaufnahme kann das Repository als benutzerdefiniertes HACS-Repository (`Integration`) hinzugefügt werden: **HACS → Integrationen → ⋮ → Benutzerdefinierte Repositories**.
 
 ## Einrichtung und Standort
 
@@ -118,11 +120,7 @@ Camper Weather steht unter der im Repository enthaltenen [Lizenz](LICENSE). Dank
 
 ## English
 
-Camper Weather is a Home Assistant integration for camper weather, warnings, comfort and outdoor planning. **v0.1.3 Stable** adds a robust collapsed-by-default Lovelace header with a full title and responsive status rows; it expands to the complete weather interface on click.
-
-It provides 24-hour, 48-hour and 7-day forecasts, separate safety and comfort indicators, DWD warning geography, tracker/Home/manual/destination locations, a target-aware activity planner, MapLibre and RainViewer. Install it through HACS, configure the integration from **Settings → Devices & services**, and add the `custom:camper-weather-card` Lovelace card. See the [English user guide](docs/USER_GUIDE_EN.md) and [English installation guide](docs/INSTALLATION_EN.md).
-
-The supplied overview image is a marketing/product overview graphic, not a single live screenshot. Public provider availability, DWD geometry coverage and map/radar service limits remain relevant. No productive Home Assistant instance is changed by repository tests or CI.
+The complete English presentation is available in [README.en.md](README.en.md). It covers the same verified v0.1.3 feature set, installation status, screenshots, provider limitations and troubleshooting guidance.
 
 ## Links
 
