@@ -2,6 +2,7 @@
   "domain": "camper_weather",
   "name": "Camper Weather",
   "after_dependencies": ["frontend", "http"],
+  "categories": ["weather_alerts.forecasts", "weather_alerts.public_warnings"],
   "codeowners": ["@balronu"],
   "config_flow": true,
   "documentation": "https://github.com/balronu/ha-camper-weather",
