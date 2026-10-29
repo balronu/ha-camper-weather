@@ -3,6 +3,7 @@
   "name": "Camper Weather",
   "after_dependencies": ["frontend", "http"],
   "codeowners": ["@balronu"],
+  "categories": ["weather_alerts.forecasts", "weather_alerts.public_warnings"],
   "config_flow": true,
   "documentation": "https://github.com/balronu/ha-camper-weather",
   "integration_type": "hub",
